@@ -181,7 +181,7 @@ TEST_F(StorageTest, CorrectExport)
 	const size_t length_buf = sizeof(g_fileNames) / sizeof(char*);
 
 	string recv_data;
-	const vector<const string> fileNamesVec(g_fileNames, g_fileNames + length_buf);
+	const vector<string> fileNamesVec(g_fileNames, g_fileNames + length_buf);
 	//check for each db
 	for (size_t i = 0; i < g_amountClasses; i++)
 	{
