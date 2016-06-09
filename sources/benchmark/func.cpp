@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
-#include <algorithm>//max
+#include <algorithm> // max
 #include <fstream>
 #include "..\storage\StringParser.h"
 
@@ -181,7 +181,7 @@ void makeLogRecord(const char * init, const char * params, const unsigned indexS
 	const double time_elapsed, const char * comment)
 {
 	if (indexStorage > 6) return;
-	const char * methodNames[] = { "FlatStorage", "SMBStorage", "FTPStorage", "MsSQLStorage",
+	const char * methodNames[] = { "FSStorage", "SMBStorage", "FTPStorage", "MsSQLStorage",
 		"PostgreSQLStorage", "SQLiteStorage", "MongoDB" };
 	string rel_path = methodNames[indexStorage];
 	if (!createDir(rel_path))
@@ -218,7 +218,7 @@ void makeLogRecord(const char * init, const char * params, const unsigned indexS
 		return;
 	}
 	StringParser parser;
-	//for FlatStorage
+	//for FSStorage
 	if (!parser.initialize(init))
 		parser.setServer(init);
 	//1 column: storage/db/table
@@ -261,7 +261,7 @@ void help()
 	cout << "4 : parameters for method" << endl;
 
 	cout << endl << "To get additional information use --help and number of point(example: --help 1)" << endl;
-	cout << "5[extra] : Also you can fill storage with random data, created in programm. For looking info use --help 5" << endl;
+	cout << "5[extra] : Also you can fill storage with random data, created in programm. For looking up info, use -- help 5" << endl;
 	//cout << "num : number of random created files to test" << endl;
 	//cout << "min(max)[opt] : minumum(maximum) file sizes in Kilobytes" << endl;
 	//cout << "init[opt] : initialization files{default init should be located in file}" << endl;
@@ -274,8 +274,8 @@ void help()
 
 void helpStorage()
 {
-	cout << "Available storages : " << endl;
-	cout << "0 - FlatStorage" << endl;
+	cout << "Available storages: " << endl;
+	cout << "0 - FSStorage" << endl;
 	cout << "1 - SMBStorage" << endl;
 	cout << "2 - FTPStorage" << endl;
 	cout << "3 - MSSQLStorage" << endl;
@@ -294,8 +294,8 @@ void helpMethod()
 	cout << "Available methods : " <<
 		"Add, " << "Get, " << "Export, " << "Incremental[backup]" << "Full[backup]" << endl;
 	cout << "This methods are parsed by the first letters i.e." << endl <<
-		"a, A, add, Abcd for add" << endl <<
-		"g, G, gg for get" << endl << "..." << endl;
+		"'a', 'A', 'add', 'Abcd' for add" << endl <<
+		"'g', 'G', 'gg' for get" << endl << "..." << endl;
 }
 
 void helpParams()
@@ -309,7 +309,7 @@ void helpParams()
 
 void helpRandInitStorage()
 {
-	cout << "Not implemented yet" << endl;
+	cout << "Not implemented" << endl;
 }
 
 

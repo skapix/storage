@@ -22,7 +22,9 @@ void helpRandInitStorage();
 
 
 #define d_timeCapture(time,func)\
+	{\
 	std::chrono::high_resolution_clock::time_point __t1 = std::chrono::high_resolution_clock::now();\
 	func;\
 	std::chrono::high_resolution_clock::time_point __t2 = std::chrono::high_resolution_clock::now();\
-	time = std::chrono::duration_cast<std::chrono::duration<double>>(__t2 - __t1).count();
+	time = std::chrono::duration_cast<std::chrono::duration<double>>(__t2 - __t1).count();\
+	}

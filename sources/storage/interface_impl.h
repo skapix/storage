@@ -13,43 +13,33 @@ public:
 	virtual ~Storage_impl() {}
 };
 
-class FlatBase : public Storage_impl
+class FSBase : public Storage_impl
 {
 public:
-	FlatBase() {}
+	FSBase() {}
 	HRESULT _CCONV add(const char * name, const char * data, const UINT size) override;
 	HRESULT _CCONV get(const char * name, char ** data, UINT * size) override;
-	//HRESULT _CCONV exportFiles(const char ** fileNames, const UINT amount, const char * path);//implemented in storage
+	//HRESULT _CCONV exportFiles(const char ** fileNames, const UINT amount, const char * path); // implemented in Storage_impl
 	HRESULT _CCONV backupFull(const char * path, UINT * amountChanged) override;
 	HRESULT _CCONV backupIncremental(const char * path, UINT * amountChanged) override;
 	HRESULT _CCONV remove(const char * name);
-	~FlatBase() {};
+	~FSBase() {};
 };
 
-class FlatStorage : public FlatBase
+class FSStorage : public FSBase
 {
 public:
-	FlatStorage() {}
+	FSStorage() {}
 	HRESULT _CCONV openStorage(const char * name) override;
-	//HRESULT _CCONV add(const char * name, const char * data, const UINT size) override;
-	//HRESULT _CCONV get(const char * name, char ** data, UINT * size) override;
-	//HRESULT _CCONV exportFiles(const char ** fileNames, const UINT amount, const char * path);//implemented in storage
-	//HRESULT _CCONV backupFull(const char * path, UINT * amountChanged) override;
-	//HRESULT _CCONV backupIncremental(const char * path, UINT * amountChanged) override;
-	~FlatStorage() override;
+	~FSStorage() override;
 };
 
-class SMBStorage : public FlatBase
+class SMBStorage : public FSBase
 {
 	void * nr; //LPNETRESOURCE
 public:
 	SMBStorage() : nr(nullptr) {}
 	HRESULT _CCONV openStorage(const char * name) override;
-	//HRESULT _CCONV add(const char * name, const char * data, const UINT size) override;
-	//HRESULT _CCONV get(const char * name, char ** data, UINT * size) override;
-	////HRESULT _CCONV exportFiles(const char ** fileNames, const UINT amount, const char * path);//implemented in storage
-	//HRESULT _CCONV backupFull(const char * path, UINT * amountChanged) override; //realized in FlatStorage
-	//HRESULT _CCONV backupIncremental(const char * path, UINT * amountChanged) override; //realized in FlatStorage
 	~SMBStorage() override;
 };
 

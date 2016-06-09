@@ -14,7 +14,7 @@
 
 using namespace std;
 
-HRESULT _CCONV FlatStorage::openStorage(const char * st)
+HRESULT _CCONV FSStorage::openStorage(const char * st)
 {
 	if (st == nullptr)
 		return E_INVALIDARG;
@@ -28,13 +28,13 @@ HRESULT _CCONV FlatStorage::openStorage(const char * st)
 	return S_OK;
 };
 
-FlatStorage::~FlatStorage()
+FSStorage::~FSStorage()
 {
 };
 
-//FlatBase (common for FlatStorage and SMBStorage)
+//FSBase (common for FSStorage and SMBStorage)
 
-HRESULT _CCONV FlatBase::add(const char * name, const char * data, const UINT size)
+HRESULT _CCONV FSBase::add(const char * name, const char * data, const UINT size)
 {
 	if (name == nullptr || data == nullptr)
 		return E_INVALIDARG;
@@ -57,7 +57,7 @@ HRESULT _CCONV FlatBase::add(const char * name, const char * data, const UINT si
 	return SetFileAttributes(newFileName.c_str(), FILE_ATTRIBUTE_ARCHIVE) == TRUE ? S_OK : E_UNEXPECTED;
 }
 
-HRESULT _CCONV FlatBase::get(const char * name, char ** data, UINT * size)
+HRESULT _CCONV FSBase::get(const char * name, char ** data, UINT * size)
 {
 	if (name == nullptr || size == nullptr)
 		return E_INVALIDARG;
@@ -114,7 +114,7 @@ HRESULT backupAux(const string & fromDir, const string & toDir, const FILETIME *
 	return S_OK;
 }
 
-HRESULT _CCONV FlatBase::backupFull(const char * path, UINT * amountChanged)
+HRESULT _CCONV FSBase::backupFull(const char * path, UINT * amountChanged)
 {
 	if (path == nullptr)
 		return E_INVALIDARG;
@@ -163,7 +163,7 @@ HRESULT setLogFileData(const string & dir, fstream & file, const string & data)
 	return S_OK;
 }
 
-HRESULT _CCONV FlatBase::backupIncremental(const char * path, UINT * amountChanged)
+HRESULT _CCONV FSBase::backupIncremental(const char * path, UINT * amountChanged)
 {
 	if (path == nullptr)
 		return E_INVALIDARG;
@@ -196,7 +196,7 @@ HRESULT _CCONV FlatBase::backupIncremental(const char * path, UINT * amountChang
 }
 
 
-HRESULT _CCONV FlatBase::remove(const char * name)
+HRESULT _CCONV FSBase::remove(const char * name)
 {
 	if (name == nullptr)
 		return E_INVALIDARG;

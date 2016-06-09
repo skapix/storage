@@ -11,12 +11,12 @@ bool g_soloTest = false;
 UINT g_numToTest = -1;
 
 
-const IID g_IIDClasses[] = { IID_IFlatStorage, IID_ISMBStorage, IID_IFTPStorage,
-		IID_IMSSQLStorage, IID_IPostgreSQLStorage, IID_ISQLiteStorage, IID_IMonUSERB };
+const IID g_IIDClasses[] = { IID_IFSStorage, IID_ISMBStorage, IID_IFTPStorage,
+		IID_IMSSQLStorage, IID_IPostgreSQLStorage, IID_ISQLiteStorage, IID_IMongoDB };
 
-const char * g_initParams[] = { "D:/gradWork/for_testing/flat_storage/1", //Flat
+const char * g_initParams[] = { "D:/gradWork/for_testing/fs_storage/1", //FS
 "server = \\\\USER\\Common\\1", //SMB//dirs should be created!
-"server = ftp://192.168.1.101/flat_storage/1", ///"server = ftp://localhost/1", //"server = ftp://localhost, login = user, pwd = pwd" //Ftp
+"server = ftp://192.168.1.101/fs_storage/1", ///"server = ftp://localhost/1", //"server = ftp://localhost, login = user, pwd = pwd" //Ftp
 "Server = USER, Database = mainDB, table = main, user = anon, pwd = pwd", //MsSql
 "server = localhost, port = 5432, db = main, table = main, user = anon, passwd = pwd", //PostGre
 "dbname = D:\\gradWork\\for_testing\\SQL1.db, table = main, user = admin", //sqlite
@@ -31,7 +31,7 @@ const char * g_fileNamesIncBackup[] = { "testA.txt", "testG.txt" };
 const UINT g_fileAmountIncBackup = sizeof(g_fileNamesIncBackup) / sizeof(g_fileNamesIncBackup[0]);
 vector<string> g_fileDatasIncBackup(g_fileAmountIncBackup);
 
-const char * g_FullBackupParams[] = { "D:/gradWork/for_testing/flat_storage/1fb", //Flat
+const char * g_FullBackupParams[] = { "D:/gradWork/for_testing/fs_storage/1fb", //FS
 "server = \\\\USER\\Common\\1fb", //SMB
 "server = ftp://localhost/1fb", //Ftp
 "Server = USER, Database = mainDB, table = mainfb, user = anon, pwd = pwd", //MsSql
@@ -40,7 +40,7 @@ const char * g_FullBackupParams[] = { "D:/gradWork/for_testing/flat_storage/1fb"
 "server = localhost, port = 27017, database = main, collection = mainfb"
 };
 
-const char * g_IncBackupParams[] = { "D:/gradWork/for_testing/flat_storage/1ib", //Flat
+const char * g_IncBackupParams[] = { "D:/gradWork/for_testing/fs_storage/1ib", //FS
 "server = \\\\USER\\Common\\1ib", //SMB
 "server = ftp://localhost/1ib", //Ftp
 "Server = USER, Database = mainDB, table = mainib, user = anon, pwd = pwd", //MsSql

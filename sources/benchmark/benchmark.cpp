@@ -41,7 +41,7 @@ int main(int argc, char * argv[])
 	}
 	
 	unsigned numberStorage = argv[1][0] - '0';
-	const IID iidClasses[] = { IID_IFlatStorage, IID_ISMBStorage, IID_IFTPStorage,
+	const IID iidClasses[] = { IID_IFSStorage, IID_ISMBStorage, IID_IFTPStorage,
 		IID_IMSSQLStorage, IID_IPostgreSQLStorage, IID_ISQLiteStorage, IID_IMongoDB };
 	HRESULT rc = CoInitialize(NULL);
 	if (FAILED(rc))
@@ -61,19 +61,21 @@ int main(int argc, char * argv[])
 	BOOST_SCOPE_EXIT(stor) {
 		stor->Release();
 	}BOOST_SCOPE_EXIT_END
-	rc = stor->openStorage(argv[2]);//rc = stor->openStorage("Server = GOD, Database = mainDB, table = main, user = anon, pwd = 0111");
+	rc = stor->openStorage(argv[2]);
 	if (FAILED(rc))
 	{
-		cout << "can't initialize(open) storage" << endl;
-		return 0;
+		cout << "Can't initialize(open) storage" << endl;
+		return 1;
 	}
 	char method = tolower(argv[3][0]);
 	const char ** argv_pointer = const_cast<const char**>(argv + 4);
 	string comment;
 	double time_measurement = makeFunc(stor, method, argv_pointer, argc - 4, comment);
 	if (time_measurement < 0)
-		return 0;
-	
+	{
+		cout << "Wrong time measurement" << endl;
+		return 1;
+	}
 	//argv[4] in exportFiles method doesn't count
 	makeLogRecord(argv[2], argv[4], numberStorage, method, time_measurement, comment.c_str());
 

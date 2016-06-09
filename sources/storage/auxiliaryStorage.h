@@ -3,7 +3,7 @@
 #include <iosfwd>
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>//FILETIME
+#include <windows.h> // FILETIME
 
 const unsigned int g_maxFileSize = 5 * 1024 * 1024;
 

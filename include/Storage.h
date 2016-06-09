@@ -1,25 +1,60 @@
 #pragma once
 #include <objbase.h>
 
-//calling convention
+// calling convention
 #define _CCONV __stdcall
+
 
 extern "C"
 {
+/**
+  \brief Storage interface.
+ */
 	struct Storage : public IUnknown
 	{
+		/** Initialize storage
+		@param name specific for each storage. Null-terminated
+		*/
 		virtual HRESULT _CCONV openStorage(IN const char * name) = 0;
+		/** Insert file into storage
+		@param name Filename. Null-terminated
+		@param data Raw data of the file.
+		@param size Size of raw Data
+		*/
 		virtual HRESULT _CCONV add(IN const char * name, IN const char * data, IN const UINT size) = 0;
+		/** Retrieve data or size depending on params
+		@param name Filename. Null-terminated.
+		@param data File data. Can be allocated by user, by system
+		@param size Buffer (data) size. 
+		size = 0 => 
+		not enough size for data =>
+		enough size for data =>
+		*/
 		virtual HRESULT _CCONV get(IN const char * name, IN OUT OPTIONAL char ** data, IN OUT UINT * size) = 0;
+		/** Save files in filesystem
+		@param fileNames Array of null-terminated file names.
+		@param amount of files to insert
+		@param path System path (directory) where files will be copied.
+		*/
 		virtual HRESULT _CCONV exportFiles(IN const char ** fileNames, IN const UINT amount, IN const char * path) = 0;
+		/** Full database backup
+		@param path
+		@param amountChanged amount of copied files
+		*/
 		virtual HRESULT _CCONV backupFull(IN const char * path, OUT OPTIONAL UINT * amountChanged) = 0;
+		/** Incremental database backup
+		@param path
+		@param amountChanged amount of copied or renewed files
+		*/
 		virtual HRESULT _CCONV backupIncremental(IN const char * path, OUT OPTIONAL UINT * amountChanged) = 0;
-		//virtual HRESULT _CCONV remove(const char * name) = 0;//TODO
+		/**
+		*/
+		//virtual HRESULT _CCONV remove(const char * name) = 0; // TODO
 	};
 }
 
 //{8E1CB9E8 - 35CD - 4A16 - 9AE1 - 62D385B664A2}
-DEFINE_GUID(IID_IFlatStorage, 0x8E1CB9E8, 0x35CD, 0x4A16,
+DEFINE_GUID(IID_IFSStorage, 0x8E1CB9E8, 0x35CD, 0x4A16,
 	0x9A, 0xE1, 0x62, 0xD3, 0x85, 0xB6, 0x64, 0xA2);
 //{EF411E75 - 124C - 48F5 - B849 - 1EEA9ACC6FD6}
 DEFINE_GUID(IID_ISMBStorage, 0xEF411E75, 0x124C, 0x48F5,

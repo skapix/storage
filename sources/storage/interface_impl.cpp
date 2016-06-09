@@ -2,18 +2,18 @@
 #include "interface_impl.h"
 
 
-static HMODULE g_hModule = NULL; // Описатель модуля DLL
-static long g_cComponents = 0; // Количество активных компонентов
-static long g_cServerLocks = 0; // Счетчик блокировок
-// Дружественное имя компонента
+static HMODULE g_hModule = NULL; // DLL module descriptor
+static long g_cComponents = 0; // Amount of active components
+static long g_cServerLocks = 0; // Lock counter
+// Friendly component name
 const char g_szFriendlyName[] = "File storage";
-// Не зависящий от версии ProgID
+// Independent from ProgID version
 const char g_szVerIndProgID[] = "File.Storage";
 // ProgID
 const char g_szProgID[] = "File.Storage.1";
 
 ///////////////////////////////////////////////////////////
-class CommonStorage : public FlatStorage, public SMBStorage, public FTPStorage,
+class CommonStorage : public FSStorage, public SMBStorage, public FTPStorage,
 	public MSSQLStorage, public PostgreSQLStorage, public SQLiteStorage, public MongoDB
 {
 public:
@@ -24,7 +24,7 @@ public:
 	CommonStorage();
 	~CommonStorage();
 private:
-//	// Счетчик ссылок
+//	Ref counter
 	long m_cRef;
 };
 
@@ -37,14 +37,15 @@ CommonStorage::~CommonStorage()
 {
 	InterlockedDecrement(&g_cComponents);
 }
+
 //
-// Реализация IUnknown
+// IUnknown implementation
 //
 HRESULT __stdcall CommonStorage::QueryInterface(const IID& iid, void** ppv)
 {
-	if (iid == IID_IUnknown || iid == IID_IFlatStorage)
+	if (iid == IID_IUnknown || iid == IID_IFSStorage)
 	{
-		*ppv = static_cast<FlatStorage*>(this);
+		*ppv = static_cast<FSStorage*>(this);
 	}
 	else if (iid == IID_ISMBStorage)
 	{
@@ -83,6 +84,7 @@ ULONG __stdcall CommonStorage::AddRef()
 {
 	return InterlockedIncrement(&m_cRef);
 }
+
 ULONG __stdcall CommonStorage::Release()
 {
 	if (InterlockedDecrement(&m_cRef) == 0)
@@ -95,7 +97,7 @@ ULONG __stdcall CommonStorage::Release()
 
 ///////////////////////////////////////////////////////////
 //
-// Фабрика класса
+// Class factory
 //
 class CFactory : public IClassFactory
 {
@@ -104,20 +106,19 @@ public:
 	virtual HRESULT __stdcall QueryInterface(const IID& iid, void** ppv);
 	virtual ULONG __stdcall AddRef();
 	virtual ULONG __stdcall Release();
-	// Интерфейс IClassFactory
+	// Interface IClassFactory
 	virtual HRESULT __stdcall CreateInstance(IUnknown* pUnknownOuter,
 		const IID& iid,
 		void** ppv);
 	virtual HRESULT __stdcall LockServer(BOOL bLock);
-	// Конструктор
 	CFactory() : m_cRef(1) {}
-	// Деструктор
-	~CFactory() { /*trace("Фабрика класса:\t\tСаморазрушение");*/ }
+	~CFactory() { }
 private:
 	long m_cRef;
 };
+
 //
-// Реализация IUnknown для фабрики класса
+// IUnknown implementation for class factory
 //
 HRESULT __stdcall CFactory::QueryInterface(const IID& iid, void** ppv)
 {
@@ -133,10 +134,12 @@ HRESULT __stdcall CFactory::QueryInterface(const IID& iid, void** ppv)
 	reinterpret_cast<IUnknown*>(*ppv)->AddRef();
 	return S_OK;
 }
+
 ULONG __stdcall CFactory::AddRef()
 {
 	return InterlockedIncrement(&m_cRef);
 }
+
 ULONG __stdcall CFactory::Release()
 {
 	if (InterlockedDecrement(&m_cRef) == 0)
@@ -146,31 +149,32 @@ ULONG __stdcall CFactory::Release()
 	}
 	return m_cRef;
 }
+
 //
-// Реализация IClassFactory
+// IClassFactory implementation
 //
 HRESULT __stdcall CFactory::CreateInstance(IUnknown* pUnknownOuter,
 	const IID& iid,
 	void** ppv)
 {
-	//trace("Фабрика класса:\t\tСоздать компонент");
-	// Агрегирование не поддерживается
+	// Aggregation is not supported
 	if (pUnknownOuter != NULL)
 	{
 		return CLASS_E_NOAGGREGATION;
 	}
-	// Создать компонент
+	// Create component
 	CommonStorage * pA = new CommonStorage;
 	if (pA == NULL)
 	{
 		return E_OUTOFMEMORY;
 	}
-	// Вернуть запрошенный интерфейс
+	// Return requested interface
 	HRESULT hr = pA->QueryInterface(iid, ppv);
-	// Освободить указатель на IUnknown
+
 	pA->Release();
 	return hr;
 }
+
 // LockServer
 HRESULT __stdcall CFactory::LockServer(BOOL bLock)
 {
@@ -196,19 +200,18 @@ HRESULT _CCONV DllCanUnloadNow()
 
 STDAPI DllGetClassObject(const CLSID & clsid, const IID & iid, void ** ppv)
 {
-	// Можно ли создать такой компонент?
+	// find out, whether we are able to create such component
 	if (clsid != CLSID_ComponentStorage)
 	{
 		return CLASS_E_CLASSNOTAVAILABLE;
 	}
-	// Создать фабрику класса
-	CFactory* pFactory = new CFactory; // Счетчик ссылок устанавливается
-	// в конструкторе в 1
+	// Create class factory
+	CFactory* pFactory = new CFactory; // Ref counter is set to 1 in constructor
 	if (pFactory == NULL)
 	{
 		return E_OUTOFMEMORY;
 	}
-	// Получить требуемый интерфейс
+	// Get required interface
 	HRESULT hr = pFactory->QueryInterface(iid, ppv);
 	pFactory->Release();
 	return hr;
