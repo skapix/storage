@@ -15,4 +15,8 @@ If you have 64-bit system and build x32 COM, you should use regsvr32 from %syste
 To unregister this component:  regsvr32 -u <path_to_dll>/storage.dll
 
 ### Tests
-Tests should be manually tuned. That is why they are not automated.
+Tests are not automated and should be manually tuned. Please look at example file [example_gtest.txt] for test args.
+Tests create auxiliary files in your database. You can delete them after testing. You can test several storages per use.
+
+###Benchmark
+Benchmark uses storage component to produce measurements and log them.

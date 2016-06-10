@@ -1,8 +1,11 @@
 #pragma once
 #include <string>
 #include <vector>
+/**
+  Class for parsing line and storing extracted information:
+  server, port, login, password, database, table
+*/
 
-//сервер, порт, бд, таблица, логин, пароль, ? ? ?
 class StringParser
 {
 	std::string server,
@@ -15,7 +18,6 @@ public:
 	StringParser() {}
 	StringParser(const char * st) { initialize(st); }
 	bool initialize(const char * st);
-	StringParser(const std::string & st);
 	void setServer(const char * s) { server = s; }
 	const std::string & getServer() const { return server; };
 	std::string & getServer() { return server; };

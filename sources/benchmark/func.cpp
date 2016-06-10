@@ -245,11 +245,8 @@ void makeLogRecord(const char * init, const char * params, const unsigned indexS
 	}
 	f.write(new_record.data(), new_record.size());
 	f << endl;
-	
+
 }
-
-
-
 
 
 void help()
@@ -261,15 +258,7 @@ void help()
 	cout << "4 : parameters for method" << endl;
 
 	cout << endl << "To get additional information use --help and number of point(example: --help 1)" << endl;
-	cout << "5[extra] : Also you can fill storage with random data, created in programm. For looking up info, use -- help 5" << endl;
-	//cout << "num : number of random created files to test" << endl;
-	//cout << "min(max)[opt] : minumum(maximum) file sizes in Kilobytes" << endl;
-	//cout << "init[opt] : initialization files{default init should be located in file}" << endl;
-	//cout << "backup(bcp) : initialization files for backup{default this files should be located in file" << endl;
-	//cout << "All arguments are passed with <key=value>" << endl;
-	//cout << "maxFilesInFolder[opt] : Only for file storages(0-2); maximum files in single folder, by default no limit" << endl;
-	//cout << "[opt] : First filename, by default file+numberOfFile";//??
-	//some other tests?
+	//cout << "5[extra] : Also you can fill storage with random data, created in programm. For looking up info, use -- help 5" << endl;
 }
 
 void helpStorage()
@@ -301,7 +290,7 @@ void helpMethod()
 void helpParams()
 {
 	cout << "For add, get you should input only filename[s]."
-		"Notice, that you can input several filenames. Method will run each time for each file." << endl;
+		"Notice, that you can input several filenames. Method will be executed for each file." << endl;
 	cout << "For export, arguments are equivalent for get/add,"
 		"but you should add full path of folder, where files will be storaged with the same names." << endl;
 	cout << "backup arguments are the similar to initialization arguments" << endl;

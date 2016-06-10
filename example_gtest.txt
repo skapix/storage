@@ -1,0 +1,7 @@
+0 "D:/test_dir/fs_storage/1" -f "D:/test_dir/fs_storage/1fb" -i "D:/test_dir/fs_storage/1ib"
+1 "server = \\\\USER\\Common\\1" -f "server = \\\\USER\\Common\\1fb" -i "server = \\\\USER\\Common\\1ib"
+2 "server = ftp://192.168.1.101/fs_storage/1" -f "server = ftp://localhost/1fb" -i "server = ftp://localhost/1ib"
+3 "Server = USER, Database = mainDB, table = main, user = anon, pwd = pwd" -f "Server = USER, Database = mainDB, table = mainfb, user = anon, pwd = pwd" -i "Server = USER, Database = mainDB, table = mainib, user = anon, pwd = pwd"
+4 "server = localhost, port = 5432, db = main, table = main, user = anon, passwd = pwd" -f "server = localhost, port = 5432, db = main, table = mainfb, user = anon, passwd = pwd" -i "server = localhost, port = 5432, db = main, table = mainib, user = anon, passwd = pwd"
+5 "dbname = D:/test_dir/SQL1.db, table = main, user = admin" -f "dbname = D:/test_dir/SQL1fb.db, table = main, user = admin" -i "dbname = D:/test_dir/SQL1ib.db, table = main, user = admin"
+6 "server = localhost, port = 27017, database = main, collection = main" -f "server = localhost, port = 27017, database = main, collection = mainfb" -i "server = localhost, port = 27017, database = main, collection = mainib"

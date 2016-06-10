@@ -6,6 +6,7 @@
 
 //<0 if failed, time otherwise
 //output ~ comment
+std::string uintToString(const UINT & val);
 double makeFunc(Storage * stor, const char op, const char ** arguments, const unsigned argument_count, std::string & output);
 void makeLogRecord(const char * init, const char * params, const unsigned indexStorage, const char method,
 	const double time_elapsed, const char * comment);

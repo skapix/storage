@@ -22,12 +22,20 @@ int main(int argc, char * argv[])
 		help();
 		return 0;
 	}
-	if (strcmp(argv[1], "--help") == 0 && argv[2][0] >= '0' && argv[2][0] <= '5')
+	if (strcmp(argv[1], "--help") == 0)
 	{
-		typedef void(*Func)();
-		Func funcs[5] = {helpStorage, helpInit, helpMethod, helpParams, helpRandInitStorage};
-		int i = argv[2][0] - '0';
-		funcs[i]();
+		int h = argv[2][0] - '0';
+		if (h >= 0 && h <= 5)
+		{
+			typedef void(*Func)();
+			const Func funcs[5] = { helpStorage, helpInit, helpMethod, helpParams, helpRandInitStorage };
+			funcs[h]();
+		}
+		else
+		{
+			help();
+		}
+		return 0;
 	}
 	//0 - executable full name
 	//1 - storage type

@@ -443,7 +443,7 @@ HRESULT _CCONV FTPStorage::backupIncremental(const char * path, UINT * amountCha
 	return retVal;
 }
 
-//doesn't work
+//doesn't work  properly :(
 HRESULT _CCONV FTPStorage::remove(const char * name)
 {
 	if (name == nullptr)

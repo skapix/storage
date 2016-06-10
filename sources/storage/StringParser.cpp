@@ -6,7 +6,6 @@ using namespace std;
 
 
 const std::string g_month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-//enum class e_NameId { Server, Port, Login, Password, DatabaseName, TableName, NoName };
 
 const char * g_serverNames[] = { "serv", "server", "hostaddr" };
 const char * g_portNames[] = { "port" };
@@ -14,15 +13,6 @@ const char * g_loginNames[] = { "login", "log", "user", "uid" };
 const char * g_passwdNames[] = { "password", "passwd", "pwd" };
 const char * g_dbNames[] = { "dbname", "db", "database" };
 const char * g_tableNames[] = { "tablename", "table", "collection"};
-
-//const map<const char *, e_NameId> mapNames = {
-//	{ g_serverNames[0], e_NameId::Server }, { g_serverNames[1], e_NameId::Server }, { g_serverNames[2], e_NameId::Server },
-//	{ g_portNames[0], e_NameId::Port },
-//	{ g_loginNames[0], e_NameId::Login }, { g_loginNames[1], e_NameId::Login }, { g_loginNames[2], e_NameId::Login },
-//	{ g_passwdNames[0], e_NameId::Password }, { g_passwdNames[1], e_NameId::Password }, { g_passwdNames[2], e_NameId::Password },
-//	{ g_dbNames[0], e_NameId::DatabaseName }, { g_dbNames[1], e_NameId::DatabaseName }, { g_dbNames[2], e_NameId::DatabaseName },
-//	{ g_tableNames[0], e_NameId::TableName }, { g_tableNames[0], e_NameId::TableName }
-//};
 
 
 inline bool consistString(const char * name, const char ** names, const unsigned amountNames)
@@ -64,7 +54,10 @@ bool StringParser::initialize(const char * st)
 			return false;
 			
 		token = strtok_s(NULL, delims, &next_token);
-		name->assign(token);
+		if (name)
+			name->assign(token);
+		//else
+		// unknown token
 		token = strtok_s(NULL, delims, &next_token);
 	}
 	return true;
@@ -120,7 +113,8 @@ FTPLsLine soloParseFTPLs(const string & soloServerResponse)
 	return res;
 }
 
-
+/** Ftp ls response is not unified. This parser was tested only with one ftp server
+*/
 vector<FTPLsLine> parseFTPLs(const string & serverResponse)
 {
 	vector<FTPLsLine> res;

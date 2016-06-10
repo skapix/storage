@@ -14,6 +14,7 @@ using namespace std;
 
 typedef unsigned char byte;
 
+
 string makePathFile(const string & path, const string & file)
 {
 	if (path.empty() || path.back() == '\\')
