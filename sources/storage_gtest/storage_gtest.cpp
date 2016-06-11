@@ -17,9 +17,6 @@ int main(int argc, char * argv[])
 	if (argc > 2 && strcmp(argv[1], "--help") == 0 || argc == 1)
 	{
 		cout << "Take a look at example [example_gtest.txt] in the root dir" << endl;
-		//
-		// call help
-		//
 		return 0;
 	}
 	for (int i = 1; i < argc;)

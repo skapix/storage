@@ -8,7 +8,7 @@
 extern "C"
 {
 /**
-  \brief Storage interface.
+  \brief Main interface.
  */
 	struct Storage : public IUnknown
 	{
@@ -25,10 +25,10 @@ extern "C"
 		/** Retrieve data or size depending on params
 		@param name Filename. Null-terminated.
 		@param data File data. Can be allocated by user, by system
-		@param size Buffer (data) size. 
-		size = 0 => 
-		not enough size for data =>
-		enough size for data =>
+		@param size Buffer (data) size.\n
+		size = 0 => allocates memory with CoTaskMemAlloc and stores data. The memory should be deallocated by caller.\n
+		not enough size for data => set size only\n
+		enough size for data => set relevant data and size\n
 		*/
 		virtual HRESULT _CCONV get(IN const char * name, IN OUT OPTIONAL char ** data, IN OUT UINT * size) = 0;
 		/** Save files in filesystem
@@ -38,12 +38,12 @@ extern "C"
 		*/
 		virtual HRESULT _CCONV exportFiles(IN const char ** fileNames, IN const UINT amount, IN const char * path) = 0;
 		/** Full database backup
-		@param path
+		@param path the same as name in openStorage
 		@param amountChanged amount of copied files
 		*/
 		virtual HRESULT _CCONV backupFull(IN const char * path, OUT OPTIONAL UINT * amountChanged) = 0;
 		/** Incremental database backup
-		@param path
+		@param path the same as name in openStorage
 		@param amountChanged amount of copied or renewed files
 		*/
 		virtual HRESULT _CCONV backupIncremental(IN const char * path, OUT OPTIONAL UINT * amountChanged) = 0;

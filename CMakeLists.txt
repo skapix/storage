@@ -59,3 +59,8 @@ if (${BUILD_TESTS})
   add_subdirectory(sources/storage_gtest)
 endif()
 add_subdirectory(sources/benchmark)
+
+if (${CREATE_DOC})
+  include(doxygen.cmake)
+  create_documentation("" "${CMAKE_SOURCE_DIR}/sources" "${CMAKE_BINARY_DIR}/doxygen" "INPUT+=${CMAKE_SOURCE_DIR}/include")
+endif()

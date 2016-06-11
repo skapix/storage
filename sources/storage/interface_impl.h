@@ -3,6 +3,10 @@
 #include "StringParser.h"
 #include "registry_func.h"
 
+/** \brief Implements most common methods/members of all storages
+
+  Implements exportFiles, which is common for storages
+*/
 struct Storage_impl : public Storage
 {
 protected:
@@ -13,6 +17,8 @@ public:
 	virtual ~Storage_impl() {}
 };
 
+/** \brief Base class for FS and SMB storages
+*/
 class FSBase : public Storage_impl
 {
 public:
