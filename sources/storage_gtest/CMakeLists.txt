@@ -8,3 +8,4 @@ add_executable(${test_name} ${SOURCE} ${HEADERS})
 set_target_properties(${test_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/)
 
 target_link_libraries(${test_name} ${GTEST_BOTH_LIBRARIES})
+add_dependencies(${test_name} ${storage_name})

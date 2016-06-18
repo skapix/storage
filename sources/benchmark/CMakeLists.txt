@@ -7,3 +7,4 @@ set(SOURCE benchmark.cpp func.cpp ${CMAKE_SOURCE_DIR}/sources/storage/auxiliaryS
 
 add_executable(${benchmark_name} ${SOURCE} ${HEADERS})
 set_target_properties(${benchmark_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/)
+add_dependencies(${benchmark_name} ${storage_name})

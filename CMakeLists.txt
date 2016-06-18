@@ -2,8 +2,9 @@ project(large_storage)
 cmake_minimum_required(VERSION 2.8)
 
 if (NOT WIN32)
-	message(SEND_ERROR "Only Windows is supported")
-	return()
+  ##
+	message(FATAL_ERROR "While only Windows OS is supported")
+  ##
 endif()
 
 include(settings.cmake)
@@ -51,16 +52,23 @@ include_directories("${CMAKE_SOURCE_DIR}/include/"
   ${GTEST_INCLUDE_DIRS})
 
 set(storage_name storage)
-set(test_name storage_gtest)
-set(benchmark_name benchmark)
-set(copy_dll_dir ${CMAKE_SOURCE_DIR}/bin) #for storage to copy dll files
+set(copy_dll_dir ${CMAKE_SOURCE_DIR}/bin) # directory with dll files
 add_subdirectory(sources/storage)
-if (${BUILD_TESTS})
-  add_subdirectory(sources/storage_gtest)
-endif()
+
+set(benchmark_name benchmark)
 add_subdirectory(sources/benchmark)
 
+if (${BUILD_TESTS})
+  ##
+  set(test_name storage_gtest)
+  add_subdirectory(sources/storage_gtest)
+  ##
+endif()
+
+
 if (${CREATE_DOC})
+  ##
   include(doxygen.cmake)
   create_documentation("" "${CMAKE_SOURCE_DIR}/sources" "${CMAKE_BINARY_DIR}/doxygen" "INPUT+=${CMAKE_SOURCE_DIR}/include")
+  ##
 endif()
