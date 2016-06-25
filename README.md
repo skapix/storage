@@ -2,9 +2,9 @@
 Bachelor's graduate work
 
 Project's aim is to create COM object with unified interface to storing data in different types of storages.
-Supported storages and types of accesses: local file storage, FTP (via curl), Samba, MSSQL, PostgreSQL, SQLite3, MongoDB
+Supported storages and types of accesses: local file storage, FTP (via curl), Smb, MSSQL, PostgreSQL, SQLite3, MongoDB
 
-You need additional libraries for building project: Boost (serialization for MongoDB and Scope Exit). You also need GTest for compiling test project.
+You need additional libraries for building project: Boost (serialization for MongoDB and Scope Exit) for main project and GTest for testing.
 
 In bin directory, 32-bit binaries are presented. In order to create 64-bit application, relevant libraries should be found.
 
