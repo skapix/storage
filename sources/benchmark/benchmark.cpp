@@ -1,9 +1,4 @@
 #include <initguid.h>
-#include <boost/version.hpp>
-#if defined(_MSC_VER) && BOOST_VERSION==105700 
-//#pragma warning(disable:4003) 
-#define BOOST_PP_VARIADICS 0 
-#endif
 #include "boost\scope_exit.hpp"
 #include <fstream>
 #include <iostream>
@@ -49,32 +44,23 @@ int main(int argc, char * argv[])
 	}
 	
 	unsigned numberStorage = argv[1][0] - '0';
-	const IID iidClasses[] = { IID_IFSStorage, IID_ISMBStorage, IID_IFTPStorage,
-		IID_IMSSQLStorage, IID_IPostgreSQLStorage, IID_ISQLiteStorage, IID_IMongoDB };
-	HRESULT rc = CoInitialize(NULL);
-	if (FAILED(rc))
-		return 1;
-	
-	BOOST_SCOPE_EXIT(void) {
-		CoUninitialize();
-	}BOOST_SCOPE_EXIT_END
-	Storage * stor = NULL;
-	rc = CoCreateInstance(CLSID_ComponentStorage,
-		NULL,
-		CLSCTX_INPROC_SERVER,
-		iidClasses[numberStorage],
-		(void**)&stor);
-	if (FAILED(rc) || stor == NULL)
+	const Storage_t iidClasses[] = { e_FSStorage, e_SMBStorage, e_FTPStorage,
+		e_MSSQLStorage, e_PostgreSQL, e_SQLite3, e_MongoDB };
+
+	 Storage * stor = createStorage(iidClasses[numberStorage]);
+	if (stor == nullptr)
 		return 1;
 	BOOST_SCOPE_EXIT(stor) {
-		stor->Release();
+		releaseStorage(stor);
 	}BOOST_SCOPE_EXIT_END
-	rc = stor->openStorage(argv[2]);
-	if (FAILED(rc))
+
+	ErrorCode rc = stor->openStorage(argv[2]);
+	if (failed(rc))
 	{
 		cout << "Can't initialize(open) storage" << endl;
 		return 1;
 	}
+
 	char method = tolower(argv[3][0]);
 	const char ** argv_pointer = const_cast<const char**>(argv + 4);
 	string comment;

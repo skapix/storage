@@ -9,27 +9,21 @@
 #include <string>
 #include <algorithm>
 #include <sstream>
+#include <iterator> // back_inserter
+#include <cctype> // toupper
 
 using namespace std;
 
 typedef unsigned char byte;
 
-
-string makePathFile(const string & path, const string & file)
+string toUpper(const string & str)
 {
-	if (path.empty() || path.back() == '\\')
-		return path + file;
-	else
-		return path + "\\" + file;
+	string retVal;
+	retVal.reserve(str.size());
+	transform(str.begin(), str.end(), back_inserter(retVal), std::toupper);
+	return retVal;
 }
 
-string makePathFileNorm(const string & path, const string & file)
-{
-	if (path.empty() || path.back() == '/')
-		return path + file;
-	else
-		return path + "/" + file;
-}
 
 string getRandData(const size_t a, const size_t b, RandomGenerator & rnd)
 {
@@ -58,4 +52,12 @@ string getDataFile(istream & f)
 	res.resize(length);
 	f.read(&res[0], length);
 	return res;
+}
+
+string uintToString(const unsigned val)
+{
+	string ret(30, '\0');
+	sprintf_s(&ret[0], 30, "%u", val);
+	ret.resize(ret.find('\0'));
+	return ret;
 }

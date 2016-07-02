@@ -1,296 +1,237 @@
-#include <initguid.h>
-#include "auxiliary.h"
 #include "tests.h"
+#include "auxiliary.h"
+#include "utilities/common.h"
+#include "utilities/dyn_mem_manager.h"
+
 #include <random>
 #include <chrono>
 #include <fstream>
+#include <vector>
+#include <memory>
+#include <algorithm>
+
 
 using namespace std;
 
-vector<map<string, string>> g_inits;
+vector<pair<const string, string>> g_fileNameData =
+{ make_pair("testA.txt", ""), make_pair("testB.txt", ""), make_pair("testC.txt", ""),
+make_pair("testD.txt", ""), make_pair("testE.txt",""), make_pair("testF.txt","") };
 
-const IID g_IIDClasses[] = { IID_IFSStorage, IID_ISMBStorage, IID_IFTPStorage,
-		IID_IMSSQLStorage, IID_IPostgreSQLStorage, IID_ISQLiteStorage, IID_IMongoDB };
-
-
-const char * g_fileNames[] = { "testA.txt", "testB.txt", "testC.txt", "testD.txt", "testE.txt", "testF.txt" };
-const UINT g_fileAmount = sizeof(g_fileNames) / sizeof(g_fileNames[0]);
-vector<string> g_fileDatas(g_fileAmount);
-
-const char * g_fileNamesIncBackup[] = { "testA.txt", "testG.txt" };
-const UINT g_fileAmountIncBackup = sizeof(g_fileNamesIncBackup) / sizeof(g_fileNamesIncBackup[0]);
-vector<string> g_fileDatasIncBackup(g_fileAmountIncBackup);
+vector<pair<const string, string>> g_fileNameDataIncBackup =
+{ make_pair("testA.txt", ""), make_pair("testG.txt", "") };
 
 
-enum InitType
+vector<InitParam> g_testSimpleParams;
+vector<ParamExtra> g_testExportParams;
+vector<ParamExtra> g_testFullBackupParams;
+vector<ParamExtra> g_testIncBackupParams;
+
+using FuncType = void(*)(Storage *);
+
+unique_ptr<Storage, FuncType> getStorage(const Storage_t type, const string & init)
 {
-	original_init,
-	full_backup,
-	incremental_backup
-};
-
-
-std::string get_init_param(const unsigned i, const InitType & init_type)
-{
-	assert(g_inits.size() > i);
-	switch (init_type)
+	Storage * stor = createStorage(type);
+	ErrorCode ec = stor->openStorage(init.c_str());
+	if (failed(ec))
 	{
-	case original_init:
-		return g_inits[i][im::g_init];
-	case full_backup:
-		return g_inits[i][im::g_fb];
-	case incremental_backup:
-		return g_inits[i][im::g_ib];
-	default:
-		throw std::exception("bad param");
+		releaseStorage(stor);
+		stor = nullptr;
+	}
+	return unique_ptr<Storage, FuncType>(stor, releaseStorage);
+}
+
+void checkFile(Storage * stor, const pair<string, string>& fileData)
+{
+	string buf(g_maxFileSize, 0);
+	unsigned sizeBuf = (unsigned)buf.size();
+	char * pBuf = &buf[0];
+	ASSERT_EQ(stor->get(fileData.first.c_str(), &pBuf, &sizeBuf), OK);
+	buf.resize(sizeBuf);
+	ASSERT_EQ(buf, fileData.second);
+}
+
+void checkFiles(Storage * stor, const vector<pair<const string, string>> & filenames)
+{
+	string buf(g_maxFileSize, 0);
+	for (unsigned j = 0; j < filenames.size(); ++j)
+	{
+		checkFile(stor, filenames[j]);
 	}
 }
 
-// buf[0] is allocated, not initialized
-void initStorages(vector<Storage*> & buf, vector<bool> & initialized, const InitType & init_type)
+
+using TestInitParam = testing::TestWithParam<InitParam>;
+
+INSTANTIATE_TEST_CASE_P(AddGetCases, TestInitParam,
+	testing::ValuesIn(g_testSimpleParams));
+
+using TestParamExtra = testing::TestWithParam<ParamExtra>;
+
+// TODO: add empty file correct add/get test checking
+TEST_P(TestInitParam, CorrectAddGet)
 {
-	assert(buf[0] != nullptr);
-	assert(buf.size() == g_inits.size());
-	assert(buf.size() == initialized.size());
-	
-	HRESULT res = S_OK;
-	for (unsigned i = 0; i < buf.size(); ++i)
-	{
-		int n_init = atoi(g_inits.front().at(im::g_id).c_str());
-		if (i >= 1)
-		{
-			res = buf[0]->QueryInterface(g_IIDClasses[n_init], (void**)&buf[i]);
-			if (FAILED(res) || buf[i] == nullptr)
-				throw exception("Can't get component");
-		}
-		string param = get_init_param(i, init_type);
-		res = buf[i]->openStorage(param.c_str());
-		initialized[i] = SUCCEEDED(res);
-		if (!param.empty() && !initialized[i])
-			cout << "Can't initialize object #" << i << endl;
-	}
+	InitParam param = GetParam();
+	auto storage = getStorage(param.type, param.initParams);
+	ASSERT_TRUE(storage);
+
+	const char * storedFileName = g_fileNameData[0].first.c_str();
+	string dataOriginal = g_fileNameData[0].second;
+
+	//#0 add file into storage
+	ASSERT_EQ(storage->add(storedFileName, dataOriginal.data(), dataOriginal.size()), OK);
+	//#1 get size of file
+	unsigned filesize = 0;
+	ASSERT_EQ(storage->get(storedFileName, nullptr, &filesize), OK);
+	ASSERT_EQ(dataOriginal.size(), filesize);
+	//#2 let com object to alloc some memory
+	char * filedata = nullptr;
+	filesize = 0;
+	ASSERT_EQ(storage->get(storedFileName, &filedata, &filesize), OK);
+	ASSERT_NE(filedata, nullptr);
+	ASSERT_EQ(dataOriginal.size(), filesize);
+	ASSERT_EQ(memcmp(dataOriginal.data(), filedata, filesize), 0);
+	utilities::deallocate(filedata);
+	//#3.1 we allocate not enough memory
+	ASSERT_FALSE(dataOriginal.empty());
+	filesize = (unsigned)dataOriginal.size() - 1;
+	filedata = (char*)utilities::allocate(filesize);
+	ASSERT_NE(filedata, nullptr);
+	ASSERT_EQ(storage->get(storedFileName, &filedata, &filesize), INSUFFICIENTMEMORY);
+	ASSERT_EQ(dataOriginal.size(), filesize);
+	//#3.2 we allocate enough memory
+	filedata = (char*)utilities::reallocate(filedata, filesize);
+	ASSERT_NE(filedata, nullptr);
+	ASSERT_EQ(storage->get(storedFileName, &filedata, &filesize), OK);
+	ASSERT_EQ(dataOriginal.size(), filesize);
+	ASSERT_EQ(memcmp(dataOriginal.data(), filedata, filesize), 0);
+	//#4 we want to get nonexistent file
+	const char * unknown_filename = "this_file_shouldn't_exist_in_the_storage.err";
+	filesize = (unsigned)dataOriginal.size();
+	ASSERT_EQ(storage->get(unknown_filename, &filedata, &filesize), EC_FALSE);
+	utilities::deallocate(filedata);
 }
 
-void totalInitStorages(vector<Storage*> & buf, vector<bool> & initialized, const InitType & init_type)
+using TestExportParam = TestParamExtra;
+
+INSTANTIATE_TEST_CASE_P(ExportCases, TestExportParam,
+	testing::ValuesIn(g_testExportParams));
+
+TEST_P(TestExportParam, CorrectExport)
 {
-	if (g_inits.empty())
+	ParamExtra param = GetParam();
+	auto storage = getStorage(param.type, param.initParams);
+	ASSERT_TRUE(storage);
+
+	const string path = param.additionParam;
+	if (path.empty())
 	{
-		buf.clear();
-		initialized.clear();
+		cout << "Skipping export tests. Export path wasn't set" << endl;
 		return;
 	}
-	buf.resize(g_inits.size(), nullptr);
-	initialized.resize(g_inits.size(), false);
-	int start_init = atoi(g_inits.front().at(im::g_id).c_str());
-	HRESULT res = CoCreateInstance(CLSID_ComponentStorage,
-		NULL,
-		CLSCTX_INPROC_SERVER,
-		g_IIDClasses[start_init],
-		(void**)&buf[0]);
-	if (FAILED(res))
-		throw exception("Module not found");
-
-	initStorages(buf, initialized, InitType::original_init);
-}
-
-
-class StorageTest : public ::testing::Test {
-private:
-protected:
-	virtual void SetUp() {
-		HRESULT res = CoInitialize(NULL);
-		if (FAILED(res))
-			throw exception("Can't initialize com library");
-		totalInitStorages(stor, initialized, InitType::original_init);
-		
-		
-		unsigned seedGen = static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count());
-		//cout << "Seed: " << seedGen << endl << endl;
-		rnd.seed(seedGen);
-
-		for (size_t i = 0; i < g_fileAmount; i++)
-		{
-			g_fileDatas[i] = getRandData(g_minFileSize, g_maxFileSize, rnd);
-		}
-		for (size_t i = 0; i < g_fileAmountIncBackup; i++)
-		{
-			g_fileDatasIncBackup[i] = getRandData(g_minFileSize, g_maxFileSize, rnd);
-		}
-	}
-	virtual void TearDown() 
-	{
-		for (size_t i = 0; i < g_inits.size(); ++i)
-		{
-			stor[i]->Release();
-		}
-		CoUninitialize();
-	}
-	RandomGenerator rnd;
-	std::vector<Storage *> stor;
-	std::vector<bool> initialized;
-	
-};
-
-
-
-TEST_F(StorageTest, CorrectAddGet)
-{
-	string dataOriginal = g_fileDatas[0];
-	const char * storedFileName = g_fileNames[0];
-	for (size_t i = 0; i < g_inits.size(); ++i)
-	{
-		if (!initialized[i])
-			continue;
-		//#0 add file into storage
-		ASSERT_EQ(stor[i]->add(storedFileName, dataOriginal.data(),dataOriginal.size()), S_OK);
-		//#1 get size of file
-		UINT filesize = 0;
-		ASSERT_EQ(stor[i]->get(storedFileName, nullptr, &filesize), S_OK);
-		ASSERT_EQ(dataOriginal.size(), filesize);
-		//#2 let com object to alloc some memory
-		char * filedata = nullptr;
-		filesize = 0;
-		ASSERT_EQ(stor[i]->get(storedFileName, &filedata, &filesize), S_OK);
-		ASSERT_NE(filedata, nullptr);
-		ASSERT_EQ(dataOriginal.size(), filesize);
-		ASSERT_EQ(memcmp(dataOriginal.data(), filedata, filesize), 0);
-		CoTaskMemFree(filedata);
-		//#3.1 we allocate not enough memory
-		filesize = (UINT)dataOriginal.size() - 1;
-		filedata = (char*)CoTaskMemAlloc(filesize);
-		ASSERT_NE(filedata, nullptr);
-		ASSERT_EQ(stor[i]->get(storedFileName, &filedata, &filesize), STG_E_INSUFFICIENTMEMORY);
-		ASSERT_EQ(dataOriginal.size(), filesize);
-		//#3.2 we allocate enough memory
-		filedata = (char*)CoTaskMemRealloc(filedata, filesize);
-		ASSERT_NE(filedata, nullptr);
-		ASSERT_EQ(stor[i]->get(storedFileName, &filedata, &filesize), S_OK);
-		ASSERT_EQ(dataOriginal.size(), filesize);
-		ASSERT_EQ(memcmp(dataOriginal.data(), filedata, filesize), 0);
-		//#4 we want to get nonexistent file
-		const char * unknown_filename = "this_file_shouldn't_exist_in_the_storage.err";
-		filesize = (UINT)dataOriginal.size();
-		ASSERT_EQ(stor[i]->get(unknown_filename, &filedata, &filesize), S_FALSE);
-		CoTaskMemFree(filedata);
-	}
-}
-
-TEST_F(StorageTest, CorrectExport)
-{
-	const string path = "D:\\gradWork\\for_testing\\auxil2";
-	const size_t length_buf = sizeof(g_fileNames) / sizeof(char*);
-
 	string recv_data;
-	const vector<string> fileNamesVec(g_fileNames, g_fileNames + length_buf);
-	//check for each db
-	for (size_t i = 0; i < g_inits.size(); ++i)
-	{
-		if (!initialized[i])
-			continue;
-		//add elements to db
-		for (size_t j = 0; j < length_buf; j++)
-		{
-			ASSERT_EQ(stor[i]->add(fileNamesVec[j].c_str(), g_fileDatas[j].data(), g_fileDatas[j].size()), S_OK);
-		}
 
-		ASSERT_EQ(stor[i]->exportFiles(g_fileNames, length_buf, path.c_str()), S_OK);
-		//check correctness of exporting files
-		for (size_t j = 0; j < length_buf; j++)
-		{
-			const string pathName = makePathFile(path, fileNamesVec[j]);
-			ifstream f(pathName, ios::binary | ifstream::in);// ÎÁßÇÀÒÅËÜÍÎ ôëàã binary
-			//make no mistake, don't forget to set binary flag!!!!!!!!
-			ASSERT_TRUE(f.is_open());
-			recv_data = getDataFile(f);
-			f.close();
-			ASSERT_EQ(g_fileDatas[j].size(), recv_data.size());
-			ASSERT_EQ(g_fileDatas[j], recv_data);
-		}
+	
+	//add elements to db
+	for (size_t j = 0; j < g_fileNameData.size(); ++j)
+	{
+		ASSERT_EQ(storage->add(g_fileNameData[j].first.c_str(), g_fileNameData[j].second.data(),
+			g_fileNameData[j].second.size()), OK);
+	}
+
+	unsigned lengthBuf = (unsigned)g_fileNameData.size();
+	vector<const char*> filenameVec(g_fileNameData.size());
+	transform(g_fileNameData.cbegin(), g_fileNameData.cend(), filenameVec.begin(),
+		[](const pair<const string&, const string&> & pss)
+	{
+		return pss.first.c_str();
+	});
+	const char * const * filenames = filenameVec.data();
+	const char * p = path.c_str();
+
+	ASSERT_EQ(storage->exportFiles(filenames, lengthBuf, p), OK);
+	//check correctness of exporting files
+	for (size_t j = 0; j < lengthBuf; ++j)
+	{
+		const string pathName = utilities::makePathFile(path, filenameVec[j]);
+		ifstream f(pathName, ios::binary | ifstream::in);
+
+		ASSERT_TRUE(f.is_open());
+		recv_data = getDataFile(f);
+		f.close();
+		ASSERT_EQ(g_fileNameData[j].second, recv_data);
 	}
 }
 
+using TestFullBackupParam = TestParamExtra;
 
-TEST_F(StorageTest, CorrectBackup)
+INSTANTIATE_TEST_CASE_P(FullBackupCases, TestFullBackupParam,
+	testing::ValuesIn(g_testFullBackupParams));
+
+TEST_P(TestFullBackupParam, CorrectFullBackup)
 {
-	std::vector<Storage*> bStor;
-	auto checkFiles = [&](Storage * stor,const char ** filenames, const UINT fileAmount)
-	{
-		string buf(g_maxFileSize, 0);
-		for (unsigned j = 0; j < fileAmount; j++)
-		{
-			UINT sizeBuf = (UINT)buf.size();
-			char * pBuf = (&buf[0]);
-			ASSERT_EQ(stor->get(filenames[j], &pBuf, &sizeBuf), S_OK);
-		}
-	};
+	ParamExtra param = GetParam();
+	auto storage = getStorage(param.type, param.initParams);
+	ASSERT_TRUE(storage);
 
-	
-	std::vector<bool> bInitialized;
-	totalInitStorages(bStor, bInitialized, InitType::full_backup);
 	//full backup
 	//assert all file are in the storage
-	UINT sizeBuf = g_maxFileSize;
+	unsigned sizeBuf = g_maxFileSize;
 	string buf(g_maxFileSize, 0);
-	UINT amountFiles;
-	for (unsigned i = 0; i < g_inits.size(); ++i)
-	{
-		if (!initialized[i] || !bInitialized[i])
-			continue;
-		amountFiles = 0;
-		string param = get_init_param(i, InitType::full_backup);
-		ASSERT_EQ(stor[i]->backupFull(param.c_str(), &amountFiles), S_OK);
-		ASSERT_GE(amountFiles, g_fileAmount);//6 or 7
-		checkFiles(bStor[i], g_fileNames, g_fileAmount);
-	}
+	unsigned amountFiles;
 
-	//incBackup
-	for (unsigned i = 0; i < g_inits.size(); ++i)
-	{
-		if (!initialized[i] || !bInitialized[i])
-			continue;
-		string param = get_init_param(i, InitType::incremental_backup);
-		bInitialized[i] = bStor[i]->openStorage(param.c_str()) == S_OK;
-		amountFiles = 0;
-		ASSERT_EQ(stor[i]->backupIncremental(param.c_str(), &amountFiles), S_OK);
-		ASSERT_GE(amountFiles, g_fileAmount); // 6 or 7
-		checkFiles(bStor[i], g_fileNames, g_fileAmount);
-		//adding some new files with existing names into original storage
-		for (unsigned j = 0; j < g_fileAmountIncBackup; j++)
-		{
-			ASSERT_EQ(stor[i]->add(g_fileNamesIncBackup[j], g_fileDatasIncBackup[j].data(), (UINT)g_fileDatasIncBackup[j].size()), S_OK);
-		}
-		amountFiles = 0;
-		ASSERT_EQ(stor[i]->backupIncremental(param.c_str(), &amountFiles), S_OK);
-		if (i==2)
-			ASSERT_GE(amountFiles, g_fileAmountIncBackup);//FTP is so special
-		else
-			ASSERT_EQ(amountFiles, g_fileAmountIncBackup);
-		checkFiles(bStor[i], g_fileNamesIncBackup, g_fileAmountIncBackup);
-	}
+
+	amountFiles = 0;
+	string backupParam = param.additionParam;
+	ASSERT_EQ(storage->backupFull(backupParam.c_str(), &amountFiles), OK);
+
+	ASSERT_GE(amountFiles, g_fileNameData.size());
 	
-	for (unsigned i = 0; i < g_inits.size(); ++i)
-	{
-		bStor[i]->Release();
-	}
+	checkFiles(storage.get(), g_fileNameData);
+
 }
 
 
+using TestIncBackupParam = TestParamExtra;
+
+INSTANTIATE_TEST_CASE_P(IncBackupCases, TestIncBackupParam,
+	testing::ValuesIn(g_testIncBackupParams));
 
 
+TEST_P(TestIncBackupParam, CorrectIncrementalBackup)
+{
+	ParamExtra param = GetParam();
+	auto storage = getStorage(param.type, param.initParams);
+	ASSERT_TRUE(storage);
 
-//TEST_F(StorageTest, CorrectRemove)
-//{
-//	string dataOriginal = g_fileDatas[0];
-//	const char * storedFileName = "ololo_i_shouldnt_exist";
-//	for (size_t i = 0; i < g_amountClasses; i++)
-//	{
-//		if (!initialized[i])
-//			continue;
-//		ASSERT_EQ(stor[i]->add(storedFileName, dataOriginal.data(), dataOriginal.size() / 1024), S_OK);
-//		UINT filesize = 0;
-//		ASSERT_EQ(stor[i]->get(storedFileName, nullptr, &filesize), S_OK);
-//		ASSERT_EQ(stor[i]->remove(storedFileName), S_OK);
-//		ASSERT_EQ(stor[i]->get(storedFileName, nullptr, &filesize), S_FALSE);
-//		ASSERT_EQ(stor[i]->remove(storedFileName), S_FALSE);
-//	}
-//}
+
+	unsigned amountFiles = 0;
+	auto fileToPush = g_fileNameData.front();
+	ASSERT_EQ(storage->add(fileToPush.first.c_str(),
+		fileToPush.second.data(), fileToPush.second.size()), OK);
+	ASSERT_EQ(storage->backupIncremental(param.additionParam.c_str(), &amountFiles), OK);
+	ASSERT_GE(amountFiles, 1u);
+	checkFiles(storage.get(), g_fileNameData);
+
+	// adding some new files with existing names into original storage
+	for (size_t j = 0; j < g_fileNameDataIncBackup.size(); ++j)
+	{
+		ASSERT_EQ(storage->add(g_fileNameDataIncBackup[j].first.data(),
+			g_fileNameDataIncBackup[j].second.data(),
+			(unsigned)g_fileNameDataIncBackup[j].second.size()), OK);
+	}
+	
+	amountFiles = 0;
+	ASSERT_EQ(storage->backupIncremental(param.additionParam.c_str(), &amountFiles), OK);
+	
+	if (param.type == e_FTPStorage) //FTP is so special because time is measured in minutes (and sometimes in days!)
+	{
+		ASSERT_GE(amountFiles, g_fileNameDataIncBackup.size());
+	}
+	else
+	{
+		ASSERT_EQ(amountFiles, g_fileNameDataIncBackup.size());
+	}
+	
+	checkFiles(storage.get(), g_fileNameDataIncBackup);
+	
+}

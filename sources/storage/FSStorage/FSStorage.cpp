@@ -1,43 +1,43 @@
-#include "..\\interface_impl.h"
-#include "..\\auxiliaryStorage.h"
+#include "../interface_impl.h"
+#include "../auxiliaryStorage.h"
+#include "utilities/common.h"
 #include <fstream>
 #define NOMINMAX
 #include <Windows.h>
-#include <boost/version.hpp> 
-#if defined(_MSC_VER) && BOOST_VERSION==105700 
-//#pragma warning(disable:4003) 
-#define BOOST_PP_VARIADICS 0 
-#endif
-#include <boost\scope_exit.hpp>
+
+#include <boost/scope_exit.hpp>
 
 
 
 using namespace std;
+using utilities::makePathFile;
 
-HRESULT _CCONV FSStorage::openStorage(const char * st)
+ErrorCode _CCONV FSStorage::openStorage(const char * st)
 {
 	if (st == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	
 	if (!parser.initialize(st))
 		parser.setServer(st);
+
 	if (parser.getServer().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
+
 	if (!createDir(parser.getServer()))
-		return CO_E_FAILEDTOGETWINDIR;
-	return S_OK;
+		return FAILEDTOGETWINDIR;
+
+	return OK;
 };
 
 FSStorage::~FSStorage()
-{
-};
+{};
 
 //FSBase (common for FSStorage and SMBStorage)
 
-HRESULT _CCONV FSBase::add(const char * name, const char * data, const UINT size)
+ErrorCode _CCONV FSBase::add(const char * name, const char * data, const unsigned size)
 {
 	if (name == nullptr || data == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	//create dir if needed
 	const char * it = getFileNameFromPath(name);
 	if (it != name)
@@ -45,37 +45,37 @@ HRESULT _CCONV FSBase::add(const char * name, const char * data, const UINT size
 		const string relativePath(name, it);
 		const string fullPath = makePathFile(parser.getServer(), relativePath);
 		if (!createDir(fullPath))
-			return CO_E_FAILEDTOGETWINDIR;
+			return FAILEDTOGETWINDIR;
 	}
 	//insert file
 	string newFileName = makePathFile(parser.getServer(), name);
 	ofstream f(newFileName, ios::binary | ofstream::out);
 	if (!f.is_open())
-		return CO_E_FAILEDTOCREATEFILE;
+		return FAILEDTOCREATEFILE;
 	f.write(data, size);
 	f.close();
-	return SetFileAttributes(newFileName.c_str(), FILE_ATTRIBUTE_ARCHIVE) == TRUE ? S_OK : E_UNEXPECTED;
+	return SetFileAttributes(newFileName.c_str(), FILE_ATTRIBUTE_ARCHIVE) == TRUE ? OK : UNEXPECTED;
 }
 
-HRESULT _CCONV FSBase::get(const char * name, char ** data, UINT * size)
+ErrorCode _CCONV FSBase::get(const char * name, char ** data, unsigned * size)
 {
 	if (name == nullptr || size == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	string fileName = makePathFile(parser.getServer(), name);
 	ifstream f(fileName, ios::binary | ifstream::in);
 	if (!f.is_open())
-		return S_FALSE;
+		return EC_FALSE;
 	f.seekg(0, f.end);
 	size_t length = static_cast<size_t>(f.tellg());
 	f.seekg(0, f.beg);
 	d_getFunc(data, size, length, f.read(*data, length));
 	
 	f.close();
-	return S_OK;
+	return OK;
 }
 
 
-HRESULT backupAux(const string & fromDir, const string & toDir, const FILETIME * lastBackup, UINT & amountBackup)
+ErrorCode backupAux(const string & fromDir, const string & toDir, const FILETIME * lastBackup, unsigned & amountBackup)
 {
 	WIN32_FIND_DATA fd;
 	//HANDLE fileFind = findFirstBackup(fromDir, &fd);
@@ -84,7 +84,7 @@ HRESULT backupAux(const string & fromDir, const string & toDir, const FILETIME *
 	if ((fileFind =
 		FindFirstFileEx(pathToSearch.c_str(), FindExInfoBasic, &fd, FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH))
 		== INVALID_HANDLE_VALUE)
-		return E_UNEXPECTED;
+		return UNEXPECTED;
 	BOOST_SCOPE_EXIT(fileFind){ FindClose(fileFind); } BOOST_SCOPE_EXIT_END
 	//skip "." and ".."
 	while (fd.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY &&
@@ -99,34 +99,34 @@ HRESULT backupAux(const string & fromDir, const string & toDir, const FILETIME *
 		{
 			
 			if (!createDir(copyFile))
-				return CO_E_FAILEDTOGETWINDIR;
-			HRESULT res = backupAux(makePathFile(fromDir, fd.cFileName), copyFile, lastBackup, amountBackup);
-			if (FAILED(res))
+				return FAILEDTOGETWINDIR;
+			ErrorCode res = backupAux(makePathFile(fromDir, fd.cFileName), copyFile, lastBackup, amountBackup);
+			if (failed(res))
 				return res;
 		}
 		else if (fd.dwFileAttributes == FILE_ATTRIBUTE_ARCHIVE)
 		{
 			if (!CopyFile(makePathFile(fromDir,fd.cFileName).c_str(), copyFile.c_str(), FALSE))
-				return COMADMIN_E_CANTCOPYFILE;
+				return CANTCOPYFILE;
 			++amountBackup;
 		}
 	} while (FindNextFile(fileFind, &fd));
-	return S_OK;
+	return OK;
 }
 
-HRESULT _CCONV FSBase::backupFull(const char * path, UINT * amountChanged)
+ErrorCode _CCONV FSBase::backupFull(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	StringParser otherParser;
 	if (!otherParser.initialize(path))
 		otherParser.setServer(path);
 	if (otherParser.getServer().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 	if (!createDir(otherParser.getServer()))
-		return CO_E_FAILEDTOGETWINDIR;
-	UINT amountBackup = 0;
-	HRESULT res = backupAux(parser.getServer(), otherParser.getServer(), NULL, amountBackup);
+		return FAILEDTOGETWINDIR;
+	unsigned amountBackup = 0;
+	ErrorCode res = backupAux(parser.getServer(), otherParser.getServer(), NULL, amountBackup);
 	if (amountChanged != nullptr)
 		*amountChanged = amountBackup;
 	return res;
@@ -137,56 +137,56 @@ HRESULT _CCONV FSBase::backupFull(const char * path, UINT * amountChanged)
 
 
 //also creates file if not exists
-HRESULT getLogFileData(const std::string & dir, fstream & file, string & data)
+ErrorCode getLogFileData(const std::string & dir, fstream & file, string & data)
 {
 	string filename = makePathFile(dir, g_logName);
 	file.open(filename, fstream::in | fstream::out | fstream::app | fstream::binary);
 	if (!file.is_open())
-		return CO_E_FAILEDTOCREATEFILE;
+		return FAILEDTOCREATEFILE;
 	data = getDataFile(file);
 	file.close();
 	if (SetFileAttributes(filename.c_str(), FILE_ATTRIBUTE_HIDDEN) == FALSE)
-		return E_UNEXPECTED;
-	return S_OK;
+		return UNEXPECTED;
+	return OK;
 }
 
-HRESULT setLogFileData(const string & dir, fstream & file, const string & data)
+ErrorCode setLogFileData(const string & dir, fstream & file, const string & data)
 {
 	string filename = makePathFile(dir, g_logName);
 	file.open(filename, fstream::in | fstream::out | fstream::binary);
 	if (!file.is_open())
-		return CO_E_FAILEDTOCREATEFILE;
+		return FAILEDTOCREATEFILE;
 	file.write(data.data(), data.size());
 	file.close();
 	if (SetFileAttributes(filename.c_str(), FILE_ATTRIBUTE_HIDDEN) == FALSE)
-		return E_UNEXPECTED;
-	return S_OK;
+		return UNEXPECTED;
+	return OK;
 }
 
-HRESULT _CCONV FSBase::backupIncremental(const char * path, UINT * amountChanged)
+ErrorCode _CCONV FSBase::backupIncremental(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 
 	StringParser otherParser;
 	if (!otherParser.initialize(path))
 		otherParser.setServer(path);
 	if (otherParser.getServer().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 
 	if (!createDir(otherParser.getServer()))
-		return CO_E_FAILEDTOGETWINDIR;
+		return FAILEDTOGETWINDIR;
 	fstream file;
 	string data;
-	HRESULT retVal = getLogFileData(otherParser.getServer(), file, data);
-	if (FAILED(retVal))
+	ErrorCode retVal = getLogFileData(otherParser.getServer(), file, data);
+	if (failed(retVal))
 		return retVal;
 	PathTimeLog log(parser.getServer(), data);
 	if (log.isCorrupted())
-		return MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WINDOWS, ERROR_FILE_CORRUPT);
-	UINT amountBackup = 0;
+		return LOG_CORRUPTED;
+	unsigned amountBackup = 0;
 	retVal = backupAux(parser.getServer(), otherParser.getServer(), &log.getLastBackupTime(), amountBackup);
-	if (FAILED(retVal))
+	if (failed(retVal))
 		return retVal;
 	replaceRecordInData(parser.getServer(), log.getNowTime(), data);
 	retVal = setLogFileData(otherParser.getServer(), file, data);
@@ -196,15 +196,15 @@ HRESULT _CCONV FSBase::backupIncremental(const char * path, UINT * amountChanged
 }
 
 
-HRESULT _CCONV FSBase::remove(const char * name)
-{
-	if (name == nullptr)
-		return E_INVALIDARG;
-	string fullName = makePathFile(parser.getServer(), name);
-	if (DeleteFile(fullName.c_str()))
-		return S_OK;
-	if (GetLastError() == ERROR_FILE_NOT_FOUND)
-		return S_FALSE;
-	else
-		return MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WINDOWS, ERROR_ACCESS_DENIED);
-}
+//ErrorCode _CCONV FSBase::remove(const char * name)
+//{
+//	if (name == nullptr)
+//		return INVALIDARG;
+//	string fullName = makePathFile(parser.getServer(), name);
+//	if (DeleteFile(fullName.c_str()))
+//		return OK;
+//	if (GetLastError() == ERROR_FILE_NOT_FOUND)
+//		return EC_FALSE;
+//	else
+//		return MAKE_ErrorCode(SEVERITY_ERROR, FACILITY_WINDOWS, ERROR_ACCESS_DENIED);
+//}

@@ -38,25 +38,25 @@ bool createStmtProc(PGconn * conn, const char * unbindedQuery, const string & ta
 	return retVal;
 }
 
-HRESULT _CCONV PostgreSQLStorage::openStorage(const char * dataPath)
+ErrorCode _CCONV PostgreSQLStorage::openStorage(const char * dataPath)
 {
 	if (dataPath == nullptr || !parser.initialize(dataPath))
-		return E_INVALIDARG;
+		return INVALIDARG;
 	PGresult * res;
 	const string table = parser.getTableName(), database = parser.getDbName();
 	if (table.empty() || database.empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 	const char * port = parser.getPort().empty() ? nullptr : parser.getPort().c_str();
 	conn = PQsetdbLogin(parser.getServer().c_str(), port,
 		NULL, NULL, database.c_str(), parser.getLogin().c_str(), parser.getPass().c_str());
 	if (conn == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	string sql_create;
 	bindParam(table, g_SQL_CREATE, sql_create);
 	res = PQexec((PGconn*)conn, sql_create.c_str());
 	BOOST_SCOPE_EXIT(res) { PQclear(res); } BOOST_SCOPE_EXIT_END
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
-		return CO_E_FAILEDTOGETWINDIR;
+		return FAILEDTOGETWINDIR;
 
 	const char * sqlQueries[] = { g_SQL_INSERT, g_SQL_UPDATE, g_SQL_SELECT, g_SQL_REMOVE };
 	const char * sqlProcNamesOrig[] = { g_prepared_insert, g_prepared_update, g_prepared_select, g_prepared_remove };
@@ -65,23 +65,24 @@ HRESULT _CCONV PostgreSQLStorage::openStorage(const char * dataPath)
 	for (size_t i = 0; i < 3; i++)
 	{
 		if (!createStmtProc((PGconn*)conn, sqlQueries[i], table, sqlProcNamesOrig[i], numParams[i], *sqlProc[i]))
-			return E_UNEXPECTED;
+			return UNEXPECTED;
 	}
-	return S_OK;
+	return OK;
 }
 
 
-HRESULT _CCONV PostgreSQLStorage::add(const char * name, const char * data, const UINT size)
+ErrorCode _CCONV PostgreSQLStorage::add(const char * name, const char * data, const unsigned size)
 {
 	if (name == nullptr || data == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	const char * const args[] = { name, data };
-	const int paramLength[] = { strlen(name), size };
+	const int paramLength[] = { static_cast<int>(strlen(name)), 
+		static_cast<int>(size) };
 	const int paramFormats[] = { 0, 1 };//text,binary
 	PGresult * res = PQexecPrepared((PGconn*)conn, stmtInsert.c_str(), 2, args, paramLength, paramFormats, 0);
 	if (PQresultStatus(res) == PGRES_FATAL_ERROR)	//file already exists => rewrite it
 		res = PQexecPrepared((PGconn*)conn, stmtUpdate.c_str(), 2, args, paramLength, paramFormats, 0);
-	HRESULT retVal = PQresultStatus(res) == PGRES_COMMAND_OK ? S_OK : E_FAIL;
+	ErrorCode retVal = PQresultStatus(res) == PGRES_COMMAND_OK ? OK : FAIL;
 	PQclear(res);
 	return retVal;
 }
@@ -93,19 +94,19 @@ inline void postgreGetValue(PGresult * res, const int tup_num, const int field_n
 	memcpy(&data[0], PQgetvalue(res, tup_num, field_num), resLength);
 }
 
-HRESULT _CCONV PostgreSQLStorage::get(const char * name, char ** data, UINT * size)
+ErrorCode _CCONV PostgreSQLStorage::get(const char * name, char ** data, unsigned * size)
 {
 	if (name == nullptr || size == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	const char * const args[] = { name };
-	const int paramLength[] = { strlen(name) };
+	const int paramLength[] = { static_cast<int>(strlen(name)) };
 	PGresult * res = PQexecPrepared((PGconn*)conn, stmtSelect.c_str(), 1, args, paramLength, 0, 1); //0 ~ all pars are text, 1 ~ binary output
 	BOOST_SCOPE_EXIT(res) { PQclear(res); } BOOST_SCOPE_EXIT_END
 	if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) != 1)
-		return S_FALSE;
-	UINT resLength = PQgetlength(res, 0, 0);
+		return EC_FALSE;
+	unsigned resLength = PQgetlength(res, 0, 0);
 	d_getFunc(data, size, resLength, memcpy(*data, PQgetvalue(res, 0, 0), resLength););
-	return S_OK;
+	return OK;
 }
 
 
@@ -141,8 +142,8 @@ inline bool postgreUpsert(PGconn * conn, const char * query_insert, const char *
 
 
 
-HRESULT backupAux(PGconn * fromConn, const string & fromPath, PGconn * toConn, const string & toPath,
-	const string & date, UINT & amountBackup)
+ErrorCode backupAux(PGconn * fromConn, const string & fromPath, PGconn * toConn, const string & toPath,
+	const string & date, unsigned & amountBackup)
 {
 	//create table in db
 	string sqlCreate;
@@ -150,7 +151,7 @@ HRESULT backupAux(PGconn * fromConn, const string & fromPath, PGconn * toConn, c
 	PGresult * res = PQexec((PGconn*)toConn, sqlCreate.c_str());
 	BOOST_SCOPE_EXIT(res) { PQclear(res); } BOOST_SCOPE_EXIT_END
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
-		return E_FAIL;
+		return FAIL;
 
 	string sqlSelect;
 	bindParam(fromPath, g_SQL_SELECTCORTEGE, sqlSelect);
@@ -159,7 +160,7 @@ HRESULT backupAux(PGconn * fromConn, const string & fromPath, PGconn * toConn, c
 	const char * const param[] = { date.c_str() };
 	res = PQexecParams(fromConn, sqlSelect.c_str(), 1, NULL, param, &paramLength, NULL, 1);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
-		return E_FAIL;
+		return FAIL;
 		
 	amountBackup = PQntuples(res);
 	// read name, text, stamp
@@ -170,20 +171,21 @@ HRESULT backupAux(PGconn * fromConn, const string & fromPath, PGconn * toConn, c
 	string stmtInsert, stmtUpdate;
 	if (!createStmtProc(toConn, g_SQL_INSERTVALUES, toPath, g_prepared_insertWithDate, 3, stmtInsert) ||
 		!createStmtProc(toConn, g_SQL_UPDATEVALUES, toPath, g_prepared_updateWithDate, 3, stmtUpdate))
-		return E_UNEXPECTED;
-	for (UINT i = 0; i < amountBackup; i++)
+		return UNEXPECTED;
+	for (unsigned i = 0; i < amountBackup; i++)
 	{
 		string name, text, stamp;
 		postgreGetValue(res, i, 0, name);
 		postgreGetValue(res, i, 1, text);
 		postgreGetValue(res, i, 2, stamp);
 		const char * const args[] = { text.c_str(), stamp.c_str(), name.c_str() };
-		const int paramLength[] = { text.size(), stamp.size(), name.size() };
+		const int paramLength[] = { static_cast<int>(text.size()), static_cast<int>(stamp.size()),
+			static_cast<int>(name.size()) };
 		const int paramFormats[] = { 1, 1, 0 };//binary,binary,text
 		if (!postgreUpsert(toConn, stmtInsert.c_str(), stmtUpdate.c_str(), 3, args, paramLength, paramFormats))
-			return E_FAIL;
+			return FAIL;
 	}
-	return S_OK;
+	return OK;
 }
 
 ////////////////////////////////////
@@ -194,17 +196,17 @@ HRESULT backupAux(PGconn * fromConn, const string & fromPath, PGconn * toConn, c
 //1 : copy table to 'aux.dat'
 //    copy table2 from 'aux.dat'
 //2 : insert into table2 select * from table
-HRESULT _CCONV PostgreSQLStorage::backupFull(const char * path, UINT * amountChanged)
+ErrorCode _CCONV PostgreSQLStorage::backupFull(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	StringParser otherParser(path);
 	PGconn * newConn = PQsetdbLogin(otherParser.getServer().c_str(), otherParser.getPort().c_str(), NULL,
 		NULL, otherParser.getDbName().c_str(), otherParser.getLogin().c_str(), otherParser.getPass().c_str());
 	if (!newConn)
-		return E_INVALIDARG;
-	UINT amountBackup = 0;
-	HRESULT retVal = backupAux((PGconn*)conn,parser.getTableName(),newConn,otherParser.getTableName(), "-infinity", amountBackup);
+		return INVALIDARG;
+	unsigned amountBackup = 0;
+	ErrorCode retVal = backupAux((PGconn*)conn,parser.getTableName(),newConn,otherParser.getTableName(), "-infinity", amountBackup);
 	PQfinish(newConn);
 	if (amountChanged != nullptr)
 		*amountChanged = amountBackup;
@@ -264,46 +266,46 @@ inline bool clearExit(PGconn * conn, PGresult * res, bool retVal)
 	return retVal;
 }
 
-HRESULT _CCONV PostgreSQLStorage::backupIncremental(const char * path, UINT * amountChanged)
+ErrorCode _CCONV PostgreSQLStorage::backupIncremental(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	//create table in dst db
 	StringParser otherParser(path);
 
 	PGconn * newConn = PQsetdbLogin(otherParser.getServer().c_str(), otherParser.getPort().c_str(), NULL,
 		NULL, otherParser.getDbName().c_str(), otherParser.getLogin().c_str(), otherParser.getPass().c_str());
 	if (!newConn)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	BOOST_SCOPE_EXIT(newConn) { PQfinish(newConn); } BOOST_SCOPE_EXIT_END;
 	//create auxiliary db (if not exists) with time
 	PGresult * res = PQexec(newConn, g_SQL_CREATEDATE);
 	BOOST_SCOPE_EXIT(res) { PQclear(res); } BOOST_SCOPE_EXIT_END;
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
-		return E_FAIL;
+		return FAIL;
 	//select last timestamp, now timestamp
 	string lastDate, nowDate;
 	if (!selectLastDate(newConn, parser.getTableName(), otherParser.getTableName(), lastDate) ||
 		!selectNowDate(newConn, nowDate))
-		return E_FAIL;
-	UINT amountBackup = 0;
-	HRESULT retVal = backupAux((PGconn*)conn, parser.getTableName(), newConn, otherParser.getTableName(), lastDate, amountBackup);
-	if (SUCCEEDED(retVal))
-		retVal = upsertNowDate(newConn, nowDate, parser.getTableName(), otherParser.getTableName()) ? S_OK : E_FAIL;
+		return FAIL;
+	unsigned amountBackup = 0;
+	ErrorCode retVal = backupAux((PGconn*)conn, parser.getTableName(), newConn, otherParser.getTableName(), lastDate, amountBackup);
+	if (succeeded(retVal))
+		retVal = upsertNowDate(newConn, nowDate, parser.getTableName(), otherParser.getTableName()) ? OK : FAIL;
 	if (amountChanged != nullptr)
 		*amountChanged = amountBackup;
 	return retVal;
 }
 
 
-HRESULT _CCONV PostgreSQLStorage::remove(const char * name)
+ErrorCode _CCONV PostgreSQLStorage::remove(const char * name)
 {
 	if (name == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	const char * const args[] = { name };
-	const int paramLength[] = { strlen(name) };
+	const int paramLength[] = { static_cast<int>(strlen(name)) };
 	PGresult * res = PQexecPrepared((PGconn*)conn, stmtRemove.c_str(), 1, args, paramLength, 0, 0);
-	HRESULT retVal = PQresultStatus(res) == PGRES_COMMAND_OK ? S_OK : S_FALSE;
+	ErrorCode retVal = PQresultStatus(res) == PGRES_COMMAND_OK ? OK : EC_FALSE;
 	PQclear(res);
 	return retVal;
 

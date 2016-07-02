@@ -1,13 +1,11 @@
+#pragma warning(push)
+#pragma warning(disable:4996)
+
 #include "../auxiliaryStorage.h" //getFunc
 #include "../interface_impl.h"
 #include "bcon.h"
 #include "mongoc.h"
 #include <sstream>
-#include <boost/version.hpp>
-#if defined(_MSC_VER) && BOOST_VERSION==105700 
-//#pragma warning(disable:4003) 
-#define BOOST_PP_VARIADICS 0 
-#endif
 #include "boost/scope_exit.hpp"
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/binary_from_base64.hpp>
@@ -63,20 +61,20 @@ inline bool createUniqueIndexName(mongoc_collection_t * collection)
 	return true;
 }
 
-HRESULT _CCONV MongoDB::openStorage(const char * dataPath)
+ErrorCode _CCONV MongoDB::openStorage(const char * dataPath)
 {
 	if (dataPath == nullptr || !parser.initialize(dataPath))
-		return E_INVALIDARG;
+		return INVALIDARG;
 	mongoc_init();
 	if (!setClientCollection(parser, (mongoc_client_t *&)client, (mongoc_collection_t*&)collection))
-		return E_FAIL;
+		return FAIL;
 	if (!createUniqueIndexName((mongoc_collection_t*)collection))
-		return E_FAIL;
+		return FAIL;
 
 	fields = bson_new();
 	bson_append_int32((bson_t*)fields, g_id, strlen(g_id), 0);
 	bson_append_int32((bson_t*)fields, g_value, strlen(g_value), 1);
-	return S_OK;
+	return OK;
 }
 
 
@@ -89,6 +87,7 @@ inline void toBase64(const char * begin, const char * end, string & st)
 		transform_width< const char *, 6, 8>
 		>
 		base64_text;
+
 	std::copy(
 		base64_text(begin),
 		base64_text(end),
@@ -97,10 +96,10 @@ inline void toBase64(const char * begin, const char * end, string & st)
 	st.assign(os.str());
 }
 
-HRESULT _CCONV MongoDB::add(const char * name, const char * data, const UINT size)
+ErrorCode _CCONV MongoDB::add(const char * name, const char * data, const unsigned size)
 {
 	if (name == nullptr || data == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	string dataBase64;
 	toBase64(data, data + size, dataBase64);
 	bson_t * query = bson_new(), * update = bson_new();
@@ -117,11 +116,11 @@ HRESULT _CCONV MongoDB::add(const char * name, const char * data, const UINT siz
 		//!bson_append_oid(update, g_id, strlen(g_id), &oid) ||
 		!bson_append_utf8(update, g_name, strlen(g_name), name, strlen(name)) ||
 		!bson_append_utf8(update, g_value, strlen(g_value), dataBase64.data(), dataBase64.size()))
-		return E_FAIL;
+		return FAIL;
 	
 	if (mongoc_collection_remove((mongoc_collection_t*)collection, MONGOC_REMOVE_SINGLE_REMOVE, query, NULL, NULL) &&
 		mongoc_collection_insert((mongoc_collection_t*)collection, MONGOC_INSERT_NONE, update, NULL, NULL))
-		return S_OK;
+		return OK;
 	//bson_error_t err;
 	//retVal = mongoc_collection_update((mongoc_collection_t*)collection, MONGOC_UPDATE_UPSERT, query, update, NULL, &err);
 	//or
@@ -129,7 +128,7 @@ HRESULT _CCONV MongoDB::add(const char * name, const char * data, const UINT siz
 	//			query, NULL, update, NULL, false, true, false, NULL, &err);
 	//if (!retVal)
 	//	printf("%s", err.message);
-	return E_FAIL;
+	return FAIL;
 }
 
 bool retrieveValueFromKey(const bson_t * doc, const char * key, bson_value_t & value)
@@ -176,17 +175,17 @@ inline void fromBase64(const char * begin, const char * end, char * st)
 	memcpy(st, os.str().data(), os.str().length());
 }
 
-UINT getLengthFromBase64(const char * begin, const UINT length)
+unsigned getLengthFromBase64(const char * begin, const unsigned length)
 {
-	UINT res = length / 4 * 3;
-	UINT sum = length % 2 ? 2 : length % 4 ? 1 : 0;
+	unsigned res = length / 4 * 3;
+	unsigned sum = length % 2 ? 2 : length % 4 ? 1 : 0;
 	return res + sum;
 }
 
-HRESULT _CCONV MongoDB::get(const char * name, char ** data, UINT * size)
+ErrorCode _CCONV MongoDB::get(const char * name, char ** data, unsigned * size)
 {
 	if (name == nullptr || size == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	bson_t * query = bson_new();
 	BOOST_SCOPE_EXIT(query) { bson_destroy(query); } BOOST_SCOPE_EXIT_END
 	const bson_t * doc;
@@ -199,27 +198,27 @@ HRESULT _CCONV MongoDB::get(const char * name, char ** data, UINT * size)
 	if (mongoc_cursor_next(cursor, &doc) && retrieveValueFromKey(doc, g_value, val))
 	{
 		char * stBegin = val.value.v_utf8.str;
-		UINT len = val.value.v_utf8.len;//length of data in base64
-		UINT length = getLengthFromBase64(stBegin, len);//length of binary data
+		unsigned len = val.value.v_utf8.len;//length of data in base64
+		unsigned length = getLengthFromBase64(stBegin, len);//length of binary data
 		d_getFunc(data, size, length, fromBase64(stBegin, stBegin + len, *data));
-		return S_OK;
+		return OK;
 	}
-	return S_FALSE;
+	return EC_FALSE;
 }
 
 
-HRESULT backupAux(mongoc_collection_t * collection, mongoc_collection_t * otherCollection,
-	const int64_t lastBackupTime, UINT & amountBackup)
+ErrorCode backupAux(mongoc_collection_t * collection, mongoc_collection_t * otherCollection,
+	const int64_t lastBackupTime, unsigned & amountBackup)
 {
 	if (!createUniqueIndexName(otherCollection))
-		return E_UNEXPECTED;
+		return UNEXPECTED;
 	const bson_t *doc;
 	bson_t * queryFind = bson_new();
 	BOOST_SCOPE_EXIT(queryFind) { bson_destroy(queryFind); } BOOST_SCOPE_EXIT_END;
 	mongoc_cursor_t *cursor = mongoc_collection_find(collection,
 		MONGOC_QUERY_NONE, 0, 0, 0, queryFind, NULL, NULL);
 	if (!cursor)
-		return E_UNEXPECTED;
+		return UNEXPECTED;
 	BOOST_SCOPE_EXIT(cursor) { mongoc_cursor_destroy(cursor); } BOOST_SCOPE_EXIT_END;
 	
 	while (mongoc_cursor_more(cursor) && mongoc_cursor_next(cursor, &doc))
@@ -228,13 +227,13 @@ HRESULT backupAux(mongoc_collection_t * collection, mongoc_collection_t * otherC
 		if (lastBackupTime != INT64_MIN)
 		{
 			if (!retrieveValueFromKey(doc, g_id, value))
-				return E_FAIL;
+				return FAIL;
 			time_t modificationTime = bson_oid_get_time_t(&value.value.v_oid);
 			if (modificationTime < lastBackupTime)
 				continue;
 		}
 		if (!retrieveValueFromKey(doc, g_name, value))
-			return E_FAIL;
+			return FAIL;
 		//insert
 		bson_t * selector = bson_new();
 		bson_append_utf8(selector, g_name, strlen(g_name), value.value.v_utf8.str, value.value.v_utf8.len);
@@ -242,30 +241,30 @@ HRESULT backupAux(mongoc_collection_t * collection, mongoc_collection_t * otherC
 			!mongoc_collection_insert(otherCollection, MONGOC_INSERT_NONE, doc, NULL, NULL))
 		{
 			bson_destroy(selector);
-			return E_FAIL;
+			return FAIL;
 		}
 		bson_destroy(selector);
 		++amountBackup;
 	}
 	bool r = !mongoc_cursor_error(cursor, NULL);
 	
-	return r ? S_OK : E_FAIL;
+	return r ? OK : FAIL;
 }
 
 
-//HRESULT exportFiles(const std::vector<const std::string> & fileNames, const std::string & path);//implemented in storage
-HRESULT _CCONV MongoDB::backupFull(const char * path, UINT * amountChanged)
+//ErrorCode exportFiles(const std::vector<const std::string> & fileNames, const std::string & path);//implemented in storage
+ErrorCode _CCONV MongoDB::backupFull(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	StringParser otherParser(path);
 	mongoc_client_t * otherClient;
 	mongoc_collection_t * otherCollection;
 	if (!setClientCollection(otherParser, otherClient, otherCollection))
-		return E_FAIL;
+		return FAIL;
 	string date;
-	UINT amountBackup = 0;
-	HRESULT retVal = backupAux((mongoc_collection_t*)collection, otherCollection, INT64_MIN, amountBackup);
+	unsigned amountBackup = 0;
+	ErrorCode retVal = backupAux((mongoc_collection_t*)collection, otherCollection, INT64_MIN, amountBackup);
 	mongoc_collection_destroy(otherCollection);
 	mongoc_client_destroy(otherClient);
 	if (amountChanged != nullptr)
@@ -309,7 +308,7 @@ int64_t retrieveLastTime(mongoc_client_t * client, const string & dbname, const 
 	return lastStamp;
 }
 
-HRESULT upsertTime(mongoc_client_t * client, const string & dbname, const string & from, const string & to, const int64_t lastTime)
+ErrorCode upsertTime(mongoc_client_t * client, const string & dbname, const string & from, const string & to, const int64_t lastTime)
 {
 	mongoc_collection_t * collection = mongoc_client_get_collection(client, dbname.c_str(), g_syslastbackupinc);
 	bool retVal = false;
@@ -321,29 +320,29 @@ HRESULT upsertTime(mongoc_client_t * client, const string & dbname, const string
 		!bson_append_utf8(update, g_keyFrom, strlen(g_keyFrom), from.c_str(), from.size()) ||
 		!bson_append_utf8(update, g_keyTo, strlen(g_keyTo), to.c_str(), to.size()) ||
 		!bson_append_date_time(update, g_time, strlen(g_time), lastTime))
-		return retVal;
+		return retVal ? OK : FAIL;
 	retVal = mongoc_collection_find_and_modify(collection, query, NULL, update, NULL, false, true, false, NULL, NULL);
-	return retVal ? S_OK : E_FAIL;
+	return retVal ? OK : FAIL;
 }
 
-HRESULT _CCONV MongoDB::backupIncremental(const char * path, UINT * amountChanged)
+ErrorCode _CCONV MongoDB::backupIncremental(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
-	HRESULT retVal = E_FAIL;
+		return INVALIDARG;
+	ErrorCode retVal = FAIL;
 	StringParser otherParser(path);
 	mongoc_client_t * otherClient;
 	mongoc_collection_t * otherCollection;
 	if (!setClientCollection(otherParser, otherClient, otherCollection))
-		return E_INVALIDARG;
+		return INVALIDARG;
 	string date;
 	
 	int64_t lastStamp = retrieveLastTime(otherClient, otherParser.getDbName(), parser.getTableName(), otherParser.getTableName());
 	time_t nowStamp;
 	time(&nowStamp);
-	UINT amountBackup = 0;
+	unsigned amountBackup = 0;
 	retVal = backupAux((mongoc_collection_t*)collection, otherCollection, lastStamp, amountBackup);
-	if (SUCCEEDED(retVal))
+	if (succeeded(retVal))
 		retVal = upsertTime(otherClient, otherParser.getDbName(), parser.getTableName(), otherParser.getTableName(), nowStamp);
 	mongoc_collection_destroy(otherCollection);
 	mongoc_client_destroy(otherClient);
@@ -352,7 +351,7 @@ HRESULT _CCONV MongoDB::backupIncremental(const char * path, UINT * amountChange
 	return retVal;
 }
 
-HRESULT _CCONV MongoDB::remove(const char * name)
+ErrorCode _CCONV MongoDB::remove(const char * name)
 {
 	bson_t * selector = bson_new();
 	BOOST_SCOPE_EXIT(selector) {
@@ -360,9 +359,9 @@ HRESULT _CCONV MongoDB::remove(const char * name)
 	} BOOST_SCOPE_EXIT_END;
 	
 	if (!bson_append_utf8(selector, g_name, strlen(g_name), name, strlen(name)))
-		return E_FAIL;
+		return FAIL;
 	bool r = mongoc_collection_remove((mongoc_collection_t*)collection, MONGOC_REMOVE_SINGLE_REMOVE, selector, nullptr, nullptr);
-	return r ? S_OK : S_FALSE;
+	return r ? OK : EC_FALSE;
 }
 
 MongoDB::~MongoDB()
@@ -375,3 +374,5 @@ MongoDB::~MongoDB()
 		mongoc_client_destroy((mongoc_client_t*)client);
 	mongoc_cleanup();
 }
+
+#pragma warning(pop)

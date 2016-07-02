@@ -80,28 +80,28 @@ SQLRETURN connectToDb(HENV henv, const StringParser & parser, HDBC & hdbc)
 	return retcode;
 }
 
-HRESULT _CCONV MSSQLStorage::openStorage(const char * dataPath)
+ErrorCode _CCONV MSSQLStorage::openStorage(const char * dataPath)
 {
 	if (dataPath == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	parser.initialize(dataPath);
 	SQLRETURN retcode = SQLAllocHandle(SQL_HANDLE_ENV, NULL, &henv);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 	retcode = SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 	retcode = connectToDb(henv, parser, hdbc);
-	check_rc(retcode, E_FAIL);
+	check_rc(retcode, FAIL);
 	retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt_select);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 	retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt_upsert);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 	retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt_remove);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 //creating table (if not exists)
 	string sql_createDb;
 	bind2Params(parser.getTableName(), parser.getTableName(), (const char *)g_SQL_CREATE, sql_createDb);
 	retcode = SQLExecDirect(hstmt_select, (SQLCHAR *)sql_createDb.c_str(), SQL_NTS);
-	check_rc(retcode, CO_E_FAILEDTOGETWINDIR);//can't create table
+	check_rc(retcode, FAILEDTOGETWINDIR);//can't create table
 	SQLFreeStmt(hstmt_select, SQL_CLOSE);
 	string sql_upsert, sql_select, sql_remove;
 	bindParam(parser.getTableName(), (const char *)g_SQL_UPSERT, sql_upsert);
@@ -109,48 +109,48 @@ HRESULT _CCONV MSSQLStorage::openStorage(const char * dataPath)
 	bindParam(parser.getTableName(), (const char *)g_SQL_SELECT, sql_remove);
 	//SQLSetStmtAttr(hstmt, SQL_ATTR_ASYNC_ENABLE, (SQLPOINTER)SQL_ASYNC_ENABLE_ON, 0);
 	retcode = SQLPrepare(hstmt_upsert, (SQLCHAR*)sql_upsert.c_str(), SQL_NTS);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 	retcode = SQLPrepare(hstmt_select, (SQLCHAR*)sql_select.c_str(), SQL_NTS);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 	retcode = SQLPrepare(hstmt_remove, (SQLCHAR*)sql_remove.c_str(), SQL_NTS);
-	check_rc(retcode, E_UNEXPECTED);
+	check_rc(retcode, UNEXPECTED);
 	
-	return S_OK;
+	return OK;
 }
 
-HRESULT _CCONV MSSQLStorage::add(const char * name, const char * data, const UINT size)
+ErrorCode _CCONV MSSQLStorage::add(const char * name, const char * data, const unsigned size)
 {
 	if (name == nullptr || data == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	SQLRETURN rc = SQLBindParameter(hstmt_upsert, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, g_maxColumnNameSize, 0,
 		(SQLPOINTER*)name, strlen(name), NULL);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	BOOST_SCOPE_EXIT(hstmt_upsert){ SQLFreeStmt(hstmt_upsert, SQL_CLOSE); } BOOST_SCOPE_EXIT_END;
 	
 	
 	SQLLEN iDataLength = size;
 	rc = SQLBindParameter(hstmt_upsert, 2, SQL_PARAM_INPUT, SQL_C_BINARY, SQL_LONGVARBINARY, g_maxColumnValueSize, 0,
 		(SQLPOINTER*)data, size, &iDataLength);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	rc = SQLExecute(hstmt_upsert);
 
-	return MYSQLSUCCESS(rc) ? S_OK : E_FAIL;
+	return MYSQLSUCCESS(rc) ? OK : FAIL;
 }
 
-HRESULT _CCONV MSSQLStorage::get(const char * name, char ** data, UINT * size)
+ErrorCode _CCONV MSSQLStorage::get(const char * name, char ** data, unsigned * size)
 {
 	if (name == nullptr || size == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	SQLRETURN rc = SQLBindParameter(hstmt_select, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 250, 0,
 		(SQLPOINTER*)name, strlen(name), NULL);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	BOOST_SCOPE_EXIT(hstmt_select){ SQLFreeStmt(hstmt_select, SQL_CLOSE); } BOOST_SCOPE_EXIT_END;
 	
 	rc = SQLExecute(hstmt_select);
-	check_rc(rc, E_FAIL);
+	check_rc(rc, FAIL);
 	
 	rc = SQLFetch(hstmt_select);
-	check_rc(rc, S_FALSE);
+	check_rc(rc, EC_FALSE);
 	char buf[1];//TargetValue can not be NULL
 	SQLINTEGER pIndicator;
 	
@@ -158,10 +158,10 @@ HRESULT _CCONV MSSQLStorage::get(const char * name, char ** data, UINT * size)
 	{
 		
 		d_getFunc(data, size, (ULONG)pIndicator, rc = SQLGetData(hstmt_select, 1, SQL_C_DEFAULT, *data, pIndicator, &pIndicator););
-		return MYSQLSUCCESS(rc) ? S_OK : E_FAIL;
+		return MYSQLSUCCESS(rc) ? OK : FAIL;
 	}
 	else
-		return E_FAIL;
+		return FAIL;
 }
 
 //bool exportFiles(const std::vector<const std::string> & fileNames, const std::string & path);//implemented in storage
@@ -183,26 +183,26 @@ const char g_SQL_UPSERTVALUES[] = "merge %s as target using (values(?, ?, ?))\
 
 
 
-HRESULT backupAux(HDBC fromHdbc, const string & fromPath, HDBC toHdbc, const string & toPath,
-	const SQL_TIMESTAMP_STRUCT & date, UINT & amountBackup)
+ErrorCode backupAux(HDBC fromHdbc, const string & fromPath, HDBC toHdbc, const string & toPath,
+	const SQL_TIMESTAMP_STRUCT & date, unsigned & amountBackup)
 {
 	
 	//create table
 	//use hstmt_upsert for creation table
 	HSTMT hstmt_select, hstmt_upsert;
 	SQLRETURN rc = SQLAllocHandle(SQL_HANDLE_STMT, fromHdbc, &hstmt_select);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	BOOST_SCOPE_EXIT(hstmt_select){ SQLFreeHandle(SQL_HANDLE_STMT, hstmt_select); } BOOST_SCOPE_EXIT_END;
 	
 	rc = SQLAllocHandle(SQL_HANDLE_STMT, toHdbc, &hstmt_upsert);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	BOOST_SCOPE_EXIT(hstmt_upsert){ SQLFreeHandle(SQL_HANDLE_STMT, hstmt_upsert); } BOOST_SCOPE_EXIT_END;
 	
 	string sqlQuery;
 	//bool retVal = false;
 	bind2Params(toPath, toPath, (char *)g_SQL_CREATE, sqlQuery);
 	rc = SQLExecDirect(hstmt_upsert, (SQLCHAR*)sqlQuery.c_str(), sqlQuery.size());
-	check_rc(rc, E_FAIL);
+	check_rc(rc, FAIL);
 	SQLFreeStmt(hstmt_upsert, SQL_CLOSE);
 
 	//select tuples
@@ -210,55 +210,55 @@ HRESULT backupAux(HDBC fromHdbc, const string & fromPath, HDBC toHdbc, const str
 	SQLPrepare(hstmt_select, (SQLCHAR*)sqlQuery.c_str(), SQL_NTS);
 	rc = SQLBindParameter(hstmt_select, 1, SQL_PARAM_INPUT, SQL_C_TIMESTAMP, SQL_TYPE_TIMESTAMP,
 		27, 7, (SQLPOINTER*)&date, sizeof(SQL_TIMESTAMP_STRUCT), NULL);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	rc = SQLExecute(hstmt_select);
-	check_rc(rc, E_FAIL);
+	check_rc(rc, FAIL);
 	string copyName(g_maxColumnNameSize, '\0'), copyValue(g_maxColumnValueSize,'\0');
 	SQLINTEGER copyNameSize = 0, copyValueSize = 0;
 	SQL_TIMESTAMP_STRUCT copyDate;
 
 	bindParam(toPath, (char *)g_SQL_UPSERTVALUES, sqlQuery);
 	rc = SQLPrepare(hstmt_upsert, (SQLCHAR*)sqlQuery.c_str(), SQL_NTS);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 
 	rc = SQLBindParameter(hstmt_upsert, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
 		g_maxColumnNameSize, 0, &copyName[0], g_maxColumnNameSize, &copyNameSize);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	rc = SQLBindParameter(hstmt_upsert, 2, SQL_PARAM_INPUT, SQL_C_BINARY, SQL_LONGVARBINARY,
 		/*columnSize*/g_maxColumnValueSize, 0, &copyValue[0], /*bufferSize*/g_maxColumnValueSize, &copyValueSize);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	rc = SQLBindParameter(hstmt_upsert, 3, SQL_PARAM_INPUT, SQL_C_TIMESTAMP, SQL_TYPE_TIMESTAMP,
 		27, 7, &copyDate, sizeof(SQL_TIMESTAMP_STRUCT), 0);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	
 	
 	while ((rc = SQLFetch(hstmt_select)) == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO)
 	{
 		rc = SQLGetData(hstmt_select, 1, SQL_C_CHAR, &copyName[0], g_maxColumnNameSize, &copyNameSize);
-		check_rc(rc, RPC_E_INVALID_DATA);
+		check_rc(rc, INVALID_DATA);
 		rc = SQLGetData(hstmt_select, 2, SQL_C_BINARY, &copyValue[0], g_maxColumnValueSize, &copyValueSize);
-		check_rc(rc, RPC_E_INVALID_DATA);
+		check_rc(rc, INVALID_DATA);
 		rc = SQLGetData(hstmt_select, 3, SQL_C_TYPE_TIMESTAMP, &copyDate, 0, 0);
-		check_rc(rc, RPC_E_INVALID_DATA);
+		check_rc(rc, INVALID_DATA);
 		rc = SQLExecute(hstmt_upsert);
 		if (!MYSQLSUCCESS(rc)) break;
 		++amountBackup;
 	}
-	return rc == SQL_NO_DATA ? S_OK : E_FAIL;
+	return rc == SQL_NO_DATA ? OK : FAIL;
 }
 
 
-HRESULT _CCONV MSSQLStorage::backupFull(const char * path, UINT * amountChanged)
+ErrorCode _CCONV MSSQLStorage::backupFull(const char * path, unsigned * amountChanged)
 {
 	HDBC newHdbc;
 	StringParser otherParser(path);
 	SQLRETURN rc = connectToDb(henv, otherParser, newHdbc);
-	check_rc(rc, E_FAIL);
+	check_rc(rc, FAIL);
 	
 	SQL_TIMESTAMP_STRUCT s =
 	{ 1987, 6, 5, 12, 34, 45, 123456700 };
-	UINT amountBackup = 0;
-	HRESULT retVal = backupAux(hdbc, parser.getTableName(), newHdbc, otherParser.getTableName(), s, amountBackup);
+	unsigned amountBackup = 0;
+	ErrorCode retVal = backupAux(hdbc, parser.getTableName(), newHdbc, otherParser.getTableName(), s, amountBackup);
 	SQLDisconnect(newHdbc);
 	SQLFreeHandle(SQL_HANDLE_DBC, newHdbc);
 	if (amountChanged != nullptr)
@@ -299,65 +299,65 @@ bool getTimeStampFromCQuery(HSTMT hstmt, SQLCHAR * query, SQL_TIMESTAMP_STRUCT &
 }
 
 
-HRESULT _CCONV MSSQLStorage::backupIncremental(const char * path, UINT * amountChanged)
+ErrorCode _CCONV MSSQLStorage::backupIncremental(const char * path, unsigned * amountChanged)
 {
 	HDBC newHdbc;
 	StringParser otherParser(path);
 	SQLRETURN rc = connectToDb(henv, otherParser, newHdbc);
-	check_rc(rc, E_FAIL);
+	check_rc(rc, FAIL);
 	BOOST_SCOPE_EXIT(newHdbc){
 		SQLDisconnect(newHdbc);
 		SQLFreeHandle(SQL_HANDLE_DBC, newHdbc);
 	} BOOST_SCOPE_EXIT_END;
 	HSTMT hstmt;
 	rc = SQLAllocHandle(SQL_HANDLE_STMT, newHdbc, &hstmt);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	BOOST_SCOPE_EXIT(newHdbc) { SQLFreeHandle(SQL_HANDLE_STMT, newHdbc); } BOOST_SCOPE_EXIT_END;
 
 	rc = SQLExecDirect(hstmt, (SQLCHAR*)g_SQL_CREATEDATE, strlen(g_SQL_CREATEDATE));
-	check_rc(rc, E_FAIL);
+	check_rc(rc, FAIL);
 	SQLFreeStmt(hstmt, SQL_CLOSE);
 	SQL_TIMESTAMP_STRUCT oldDate = { 1987, 6, 5, 12, 34, 45, 123456700 }, nowDate;
 	string query;
 	bind2Params(parser.getTableName(), otherParser.getTableName(), g_SQL_SELECTLASTDATE, query);
 	if (!getTimeStampFromCQuery(hstmt, (SQLCHAR*)query.c_str(), oldDate) ||
 		!getTimeStampFromCQuery(hstmt, (SQLCHAR*)g_SQL_GETCURDATE, nowDate))
-		return RPC_E_INVALID_DATA;
+		return INVALID_DATA;
 	
-	UINT amountBackup = 0;
-	HRESULT retVal = backupAux(hdbc, parser.getTableName(), newHdbc, otherParser.getTableName(), oldDate, amountBackup);
-	if (SUCCEEDED(retVal))
+	unsigned amountBackup = 0;
+	ErrorCode retVal = backupAux(hdbc, parser.getTableName(), newHdbc, otherParser.getTableName(), oldDate, amountBackup);
+	if (succeeded(retVal))
 	{
 		string name = parser.getTableName(), otherName = otherParser.getTableName();
 		SQLINTEGER s1 = name.size(), s2 = otherName.size();
 		rc = SQLPrepare(hstmt, (SQLCHAR*)g_SQL_UPSERTDATE, SQL_NTS);
-		check_rc(rc, E_UNEXPECTED);
+		check_rc(rc, UNEXPECTED);
 		rc = SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
 			g_maxColumnNameSize, 0, (SQLPOINTER)name.c_str(), s1, &s1);
-		check_rc(rc, E_UNEXPECTED);
+		check_rc(rc, UNEXPECTED);
 		rc = SQLBindParameter(hstmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
 			g_maxColumnNameSize, 0, (SQLPOINTER)otherName.c_str(), s2, &s2);
-		check_rc(rc, E_UNEXPECTED);
+		check_rc(rc, UNEXPECTED);
 		rc = SQLBindParameter(hstmt, 3, SQL_PARAM_INPUT, SQL_C_TIMESTAMP, SQL_TYPE_TIMESTAMP,
 			27, 7, &nowDate, sizeof(SQL_TIMESTAMP_STRUCT), 0);
-		check_rc(rc, E_UNEXPECTED);
+		check_rc(rc, UNEXPECTED);
 		rc = SQLExecute(hstmt);
 	}
 	if (amountChanged != nullptr)
 		*amountChanged = amountBackup;
-	return SUCCEEDED(retVal) && MYSQLSUCCESS(rc) ? S_OK : E_FAIL;
+	return succeeded(retVal) && MYSQLSUCCESS(rc) ? OK : FAIL;
 }
 
-HRESULT _CCONV MSSQLStorage::remove(const char * name)
+ErrorCode _CCONV MSSQLStorage::remove(const char * name)
 {
 	if (name == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	SQLRETURN rc = SQLBindParameter(hstmt_remove, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, g_maxColumnNameSize, 0,
 		(SQLPOINTER*)name, strlen(name), NULL);
-	check_rc(rc, E_UNEXPECTED);
+	check_rc(rc, UNEXPECTED);
 	rc = SQLExecute(hstmt_remove);
 	SQLFreeStmt(hstmt_remove, SQL_CLOSE);
-	return MYSQLSUCCESS(rc) ? S_OK : S_FALSE;
+	return MYSQLSUCCESS(rc) ? OK : EC_FALSE;
 }
 
 MSSQLStorage::~MSSQLStorage()

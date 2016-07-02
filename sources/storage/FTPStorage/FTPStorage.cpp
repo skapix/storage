@@ -1,18 +1,16 @@
-#include "..\\interface_impl.h"
-#include "curl\curl.h"
-#include "..\\auxiliaryStorage.h"
-#include <boost/version.hpp> 
-#if defined(_MSC_VER) && BOOST_VERSION==105700 
-//#pragma warning(disable:4003) 
-#define BOOST_PP_VARIADICS 0 
-#endif
-#include <boost\scope_exit.hpp>
+#define NOMINMAX
+#include "../interface_impl.h"
+#include "curl/curl.h"
+#include "../auxiliaryStorage.h"
+#include "utilities/common.h"
+#include <boost/scope_exit.hpp>
 
 
 
 //using namespace std;
 using std::string;
 using std::vector;
+using utilities::makePathFile;
 
 //assert(sizeof(char))==1
 struct DataGetStruct
@@ -55,7 +53,7 @@ static size_t fwriteGetStruct(void *buffer, size_t size, size_t nmemb, void *str
 static size_t freadSendStruct(void *ptr, size_t size, size_t nmemb, void *stream)
 {
 	DataSendStruct *s = (DataSendStruct *)stream;
-	size_t readSz = min(size*nmemb, s->size);
+	size_t readSz = std::min(size*nmemb, s->size);
 	memcpy(ptr, s->buf, readSz);
 	s->size -= readSz;
 	s->buf += readSz;
@@ -64,39 +62,39 @@ static size_t freadSendStruct(void *ptr, size_t size, size_t nmemb, void *stream
 
 
 //port, login, pwd
-HRESULT setCurlParams(const StringParser & parser, CURL * curl)
+ErrorCode setCurlParams(const StringParser & parser, CURL * curl)
 {
 	bool retVal = true;
 	if (!parser.getPort().empty())
 	{
 		unsigned long port = std::stoul(parser.getPort());
-		if (port >= USHRT_MAX)
-			return E_INVALIDARG;
+		if (port >=std::numeric_limits<unsigned short>::max())
+			return INVALIDARG;
 		if (curl_easy_setopt(curl, CURLOPT_PORT, (unsigned short)port) != CURLE_OK)
-			return COMADMIN_E_SYSTEMAPP;
+			return SYSTEMAPP;
 	}
 	if (!parser.getLogin().empty())
 	{
 		if (curl_easy_setopt(curl, CURLOPT_USERNAME, parser.getLogin().c_str()) != CURLE_OK)
-			return COMADMIN_E_SYSTEMAPP;
+			return SYSTEMAPP;
 	}
 	if (!parser.getPass().empty())
 	{
 		if (curl_easy_setopt(curl, CURLOPT_PASSWORD, parser.getPass().c_str()) != CURLE_OK)
-			return COMADMIN_E_SYSTEMAPP;
+			return SYSTEMAPP;
 	}
-	return S_OK;
+	return OK;
 }
 
-HRESULT _CCONV FTPStorage::openStorage(const char * dataPath)
+ErrorCode _CCONV FTPStorage::openStorage(const char * dataPath)
 {
 	if (dataPath == nullptr || !parser.initialize(dataPath))
-		return E_INVALIDARG;
+		return INVALIDARG;
 	curl_global_init(CURL_GLOBAL_DEFAULT);
 	curl = curl_easy_init();
 	exportCurl = curl_easy_init();
 	if (!curl || !exportCurl)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 
 	if (curl_easy_setopt(curl, CURLOPT_FTP_CREATE_MISSING_DIRS, 1L) != CURLE_OK || 
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwriteGetStruct) != CURLE_OK || //for get, string as par
@@ -104,17 +102,17 @@ HRESULT _CCONV FTPStorage::openStorage(const char * dataPath)
 		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, getSizeFromHeaderCallback) != CURLE_OK || //header func
 		curl_easy_setopt(curl, CURLOPT_HEADER, 0L) != CURLE_OK || //No header output
 		curl_easy_setopt(exportCurl, CURLOPT_WRITEFUNCTION, fwrite) != CURLE_OK) //for export, file* as par
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 
-	HRESULT res = setCurlParams(parser, curl);
-	if (FAILED(res))
+	ErrorCode res = setCurlParams(parser, curl);
+	if (failed(res))
 		return res;
 	return setCurlParams(parser, exportCurl);
 }
 
 
 //assert *size >= sizeof(downloading file)
-HRESULT receiveFile(CURL * curl, const char * url, char * data, const UINT size)
+ErrorCode receiveFile(CURL * curl, const char * url, char * data, const UINT size)
 {
 	CURLcode code = CURLE_OK;
 	DataGetStruct s = { data, size };
@@ -122,26 +120,26 @@ HRESULT receiveFile(CURL * curl, const char * url, char * data, const UINT size)
 	{
 		if (curl_easy_setopt(curl, CURLOPT_URL, url) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s) != CURLE_OK)
-			return COMADMIN_E_SYSTEMAPP;
+			return SYSTEMAPP;
 		code = curl_easy_perform(curl);
 	}
 	while (code == CURLE_PARTIAL_FILE);
-	return code == CURLE_OK ? S_OK : S_FALSE;
+	return code == CURLE_OK ? OK : EC_FALSE;
 }
 
 
-HRESULT getFileSize(CURL * curl, const char * fileurl, UINT & filesize)
+ErrorCode getFileSize(CURL * curl, const char * fileurl, UINT & filesize)
 {
 	curl_easy_setopt(curl, CURLOPT_URL, fileurl);
 	if (curl_easy_setopt(curl, CURLOPT_NOBODY, 1L) != CURLE_OK)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 	BOOST_SCOPE_EXIT(curl){ curl_easy_setopt(curl, CURLOPT_NOBODY, 0L); } BOOST_SCOPE_EXIT_END;
 	//curl_easy_setopt(curl, CURLOPT_FILETIME, 1L);
 	//CURLINFO_HEADER_SIZE
 	const UINT bufSz = 19 + 22 + 10;
 	char b[bufSz];
-	HRESULT retVal = receiveFile(curl, fileurl, b, bufSz);
-	if (FAILED(retVal) || retVal == S_FALSE)
+	ErrorCode retVal = receiveFile(curl, fileurl, b, bufSz);
+	if (failed(retVal) || retVal == S_FALSE)
 		return retVal;
 	
 	
@@ -149,62 +147,62 @@ HRESULT getFileSize(CURL * curl, const char * fileurl, UINT & filesize)
 	CURLcode res = curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &d_fileSize);
 	
 	if (res != CURLE_OK)
-		return E_FAIL;
+		return FAIL;
 	else if (d_fileSize < 0.0)
-		return S_FALSE;
-	if (d_fileSize > UINT_MAX)
-		return MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WINDOWS, ERROR_FILE_TOO_LARGE);
+		return EC_FALSE;
+	if (d_fileSize > std::numeric_limits<unsigned int>::max())
+		return FILE_TOO_LARGE;
 	filesize = static_cast<UINT>(ceil(d_fileSize));
-	return S_OK;
+	return OK;
 }
 
-HRESULT sendFile(CURL * curl, const string & path, const char * filename, const char * data, const UINT size)
+ErrorCode sendFile(CURL * curl, const string & path, const char * filename, const char * data, const UINT size)
 {
 	DataSendStruct s = { data, size };
-	string fileLoc = makePathFileNorm(path, filename);
+	string fileLoc = makePathFile(path, filename, '/');
 	if (curl_easy_setopt(curl, CURLOPT_URL, fileLoc.c_str()) != CURLE_OK ||
 		curl_easy_setopt(curl, CURLOPT_READDATA, &s) != CURLE_OK)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 	if (curl_easy_perform(curl) != CURLE_OK)
-		return COMADMIN_E_APP_FILE_WRITEFAIL;
-	return S_OK;
+		return FILE_WRITEFAIL;
+	return OK;
 }
 
 
-HRESULT _CCONV FTPStorage::add(const char * name, const char * data, const UINT size)
+ErrorCode _CCONV FTPStorage::add(const char * name, const char * data, const UINT size)
 {
 	if (name == nullptr || data == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	if (curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L) != CURLE_OK)
-		return COMADMIN_E_SYSTEMAPP;
-	HRESULT res = sendFile(curl, parser.getServer(), name, data, size);
+		return SYSTEMAPP;
+	ErrorCode res = sendFile(curl, parser.getServer(), name, data, size);
 	if (curl_easy_setopt(curl, CURLOPT_UPLOAD, 0L) != CURLE_OK)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 	return res;
 }
 
 
-HRESULT _CCONV FTPStorage::get(const char * name, char ** data, UINT * size)
+ErrorCode _CCONV FTPStorage::get(const char * name, char ** data, UINT * size)
 {
 	if (size == nullptr)
-		return E_INVALIDARG;
-	string pathFile = makePathFileNorm(parser.getServer(), name);
+		return INVALIDARG;
+	string pathFile = makePathFile(parser.getServer(), name, '/');
 	UINT filesize = 0;
-	HRESULT retVal = getFileSize(curl, pathFile.c_str(), filesize);
-	if (FAILED(retVal))
+	ErrorCode retVal = getFileSize(curl, pathFile.c_str(), filesize);
+	if (failed(retVal))
 		return retVal;
 	UINT length = static_cast<UINT>(filesize);
 
 	d_getFunc(data, size, length, return receiveFile(curl, pathFile.c_str(), *data, *size));
-	return S_OK;
+	return OK;
 }
 
 
 
-HRESULT _CCONV FTPStorage::exportFiles(const char ** fileNames, const UINT amount, const char * path)
+ErrorCode _CCONV FTPStorage::exportFiles(const char * const * fileNames, const UINT amount, const char * path)
 {
 	if (fileNames == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	for (UINT i = 0; i < amount; i++)
 	{
 		FILE * file = NULL;
@@ -212,28 +210,28 @@ HRESULT _CCONV FTPStorage::exportFiles(const char ** fileNames, const UINT amoun
 		string locFile = makePathFile(path, name);
 		
 		
-		string url = makePathFileNorm(parser.getServer(), fileNames[i]);
+		string url = makePathFile(parser.getServer(), fileNames[i], '/');
 		CURLcode cd = CURLE_OK;
 		do
 		{
 			if (fopen_s(&file, locFile.c_str(), "wb") || file == NULL)
-				return CO_E_FAILEDTOCREATEFILE;
+				return FAILEDTOCREATEFILE;
 			if (curl_easy_setopt(exportCurl, CURLOPT_URL, url.c_str()) != CURLE_OK ||
 				curl_easy_setopt(exportCurl, CURLOPT_WRITEDATA, file) != CURLE_OK)
-				return COMADMIN_E_SYSTEMAPP;
+				return SYSTEMAPP;
 			cd = curl_easy_perform(exportCurl);
 			fclose(file);
 		} while (cd == CURLE_PARTIAL_FILE);
 		
 		if (cd != CURLE_OK)
-			return COMADMIN_E_APP_FILE_READFAIL;
+			return FILE_READFAIL;
 		
 		//if fails, usualy has CURLE_PARTIAL_FILE error. Don't know how to struggle with it
 		//That typically means a bad server or a network problem, not a client - side problem. <-- From stackoverflow
 		//If you cannot affect the network or server conditions, you probably need to consider ignoring this particular error.
 		
 	}
-	return S_OK;
+	return OK;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -293,7 +291,7 @@ static size_t fwriteString(void *buffer, size_t size, size_t nmemb, void *stream
 }
 
 //if fullBackup -> lastBackup == {0,0}
-HRESULT ftpBackup(CURL * curl, const string & path, CURL * backupCurl, const string & backupPath, 
+ErrorCode ftpBackup(CURL * curl, const string & path, CURL * backupCurl, const string & backupPath, 
 	const FILETIME & lastBackup, UINT & amountBackup)
 {
 	string ls;
@@ -305,7 +303,7 @@ HRESULT ftpBackup(CURL * curl, const string & path, CURL * backupCurl, const str
 		CURLcode res = curl_easy_perform(curl);
 	} while (res == CURLE_PARTIAL_FILE);
 	if (res != CURLE_OK)
-		return COMADMIN_E_APP_FILE_READFAIL;
+		return FILE_READFAIL;
 	bool incBackup = lastBackup.dwHighDateTime != 0 || lastBackup.dwLowDateTime != 0;
 	FILETIME modifiedTime;
 	/* Check for errors */
@@ -315,7 +313,7 @@ HRESULT ftpBackup(CURL * curl, const string & path, CURL * backupCurl, const str
 		if (incBackup)
 		{
 			if (!retrieveFileTime(lsParsed[i].modifiedDate, modifiedTime))
-				return MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WINDOWS, ERROR_FILE_CORRUPT);
+				return LOG_CORRUPTED;
 			if (CompareFileTime(&modifiedTime, &lastBackup) == -1)
 				continue;
 		}
@@ -323,41 +321,42 @@ HRESULT ftpBackup(CURL * curl, const string & path, CURL * backupCurl, const str
 		{
 l_againLoop:
 			string data;
-			string url = makePathFileNorm(path, lsParsed[i].filename);
+			string url = makePathFile(path, lsParsed[i].filename, '/');
 			//get file
 			if (curl_easy_setopt(curl, CURLOPT_URL, url.c_str()) != CURLE_OK ||
 				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data) != CURLE_OK)
-				return COMADMIN_E_SYSTEMAPP;
+				return SYSTEMAPP;
 			res = curl_easy_perform(curl);
 			if (res != CURLE_OK)
 			{
 				if (res == CURLE_PARTIAL_FILE)
 					goto l_againLoop;
 				else
-					return COMADMIN_E_APP_FILE_READFAIL;
+					return FILE_READFAIL;
 			}
 				
 			DataSendStruct dataSend = { data.data(), (UINT)data.size() };
-			if (curl_easy_setopt(backupCurl, CURLOPT_URL, makePathFileNorm(backupPath, lsParsed[i].filename).c_str()) != CURLE_OK ||
+			if (curl_easy_setopt(backupCurl, CURLOPT_URL, 
+				makePathFile(backupPath, lsParsed[i].filename).c_str(), '/') != CURLE_OK ||
 				curl_easy_setopt(backupCurl, CURLOPT_READDATA, &dataSend) != CURLE_OK)
-				return COMADMIN_E_SYSTEMAPP;
+				return SYSTEMAPP;
 			res = curl_easy_perform(backupCurl);
 			if (res != CURLE_OK)
-				return COMADMIN_E_APP_FILE_WRITEFAIL;
+				return FILE_WRITEFAIL;
 			++amountBackup;
 		}
 		else if (lsParsed[i].typeFile == FTPLsLine::DIR)
 		{
-			string newPath = makePathFileNorm(path, lsParsed[i].filename),
-				newBackupPath = makePathFileNorm(backupPath, lsParsed[i].filename);
+			string newPath = makePathFile(path, lsParsed[i].filename, '/'),
+				newBackupPath = makePathFile(backupPath, lsParsed[i].filename, '/');
 			newPath.push_back('/');
 			newBackupPath.push_back('/');
-			HRESULT retVal = S_OK;
-			if (FAILED(retVal = ftpBackup(curl, newPath, backupCurl, newBackupPath, modifiedTime, amountBackup)))
+			ErrorCode retVal = OK;
+			if (failed(retVal = ftpBackup(curl, newPath, backupCurl, newBackupPath, modifiedTime, amountBackup)))
 				return retVal;
 		}//if typeFile
 	}//for
-	return S_OK;
+	return OK;
 }
 
 
@@ -369,11 +368,11 @@ void prepareCurlForBackup(CURL * backupCurl, const StringParser & otherParser)
 	curl_easy_setopt(backupCurl, CURLOPT_UPLOAD, 1L);
 }
 
-HRESULT _CCONV FTPStorage::backupAux(const StringParser & otherParser, const bool incremental, UINT & amountBackup)
+ErrorCode _CCONV FTPStorage::backupAux(const StringParser & otherParser, const bool incremental, UINT & amountBackup)
 {
 	CURL * backupCurl = curl_easy_init();
 	if (!backupCurl)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 	BOOST_SCOPE_EXIT(backupCurl){ curl_easy_cleanup(backupCurl); } BOOST_SCOPE_EXIT_END;
 	if (parser.getServer().back() != '/')
 		parser.getServer().push_back('/');
@@ -383,18 +382,18 @@ HRESULT _CCONV FTPStorage::backupAux(const StringParser & otherParser, const boo
 	if (incremental)
 	{
 		string data;
-		string logurl = makePathFileNorm(otherParser.getServer(), g_logName);
+		string logurl = makePathFile(otherParser.getServer(), g_logName, '/');
 		FILETIME now = getCurrentLocalTime();
 		if (curl_easy_setopt(curl, CURLOPT_URL, logurl.c_str()) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data) != CURLE_OK)
-			return COMADMIN_E_SYSTEMAPP;
+			return SYSTEMAPP;
 		if (curl_easy_perform(curl) == CURLE_OK)
 		{
 			PathTimeLog log(parser.getServer(), data);
 			lastBackup = log.getLastBackupTime();
 		}
-		HRESULT retVal = ftpBackup(curl, parser.getServer(), backupCurl, otherParser.getServer(), lastBackup, amountBackup);
-		if (SUCCEEDED(retVal))
+		ErrorCode retVal = ftpBackup(curl, parser.getServer(), backupCurl, otherParser.getServer(), lastBackup, amountBackup);
+		if (succeeded(retVal))
 		{
 			replaceRecordInData(parser.getServer(), now, data);
 			retVal = sendFile(backupCurl, otherParser.getServer(), g_logName, data.data(), data.size());
@@ -408,17 +407,17 @@ HRESULT _CCONV FTPStorage::backupAux(const StringParser & otherParser, const boo
 
 
 //parser.getServer().c_str();// should have slash at the end!
-HRESULT _CCONV FTPStorage::backupFull(const char * path, UINT * amountChanged)
+ErrorCode _CCONV FTPStorage::backupFull(const char * path, UINT * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	if (curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwriteString) != CURLE_OK)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 	StringParser otherParser(path);
 	if (otherParser.getServer().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 	UINT amountBackup = 0;
-	HRESULT retVal = backupAux(path, false, amountBackup);
+	ErrorCode retVal = backupAux(path, false, amountBackup);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwriteGetStruct);
 	if (amountChanged != nullptr)
 		*amountChanged = amountBackup;
@@ -426,17 +425,17 @@ HRESULT _CCONV FTPStorage::backupFull(const char * path, UINT * amountChanged)
 
 }
 
-HRESULT _CCONV FTPStorage::backupIncremental(const char * path, UINT * amountChanged)
+ErrorCode _CCONV FTPStorage::backupIncremental(const char * path, UINT * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	if (curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwriteString) != CURLE_OK)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 	StringParser otherParser(path);
 	if (otherParser.getServer().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 	UINT amountBackup = 0;
-	HRESULT retVal = backupAux(path, true, amountBackup);
+	ErrorCode retVal = backupAux(path, true, amountBackup);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwriteGetStruct);
 	if (amountChanged != nullptr)
 		*amountChanged = amountBackup;
@@ -444,11 +443,11 @@ HRESULT _CCONV FTPStorage::backupIncremental(const char * path, UINT * amountCha
 }
 
 //doesn't work  properly :(
-HRESULT _CCONV FTPStorage::remove(const char * name)
+ErrorCode _CCONV FTPStorage::remove(const char * name)
 {
 	if (name == nullptr)
-		return E_INVALIDARG;
-	string url = makePathFileNorm(parser.getServer(), name);
+		return INVALIDARG;
+	string url = makePathFile(parser.getServer(), name, '/');
 	string dele = string("DELE ") + name;
 	//curl does not support removing files from ftp server by default
 	//a bit tricky
@@ -456,15 +455,15 @@ HRESULT _CCONV FTPStorage::remove(const char * name)
 	pHeaderList = curl_slist_append(pHeaderList, dele.c_str());
 	if (curl_easy_setopt(curl, CURLOPT_URL, url.c_str()) != CURLE_OK ||
 		curl_easy_setopt(curl, CURLOPT_QUOTE, pHeaderList) != CURLE_OK)
-		return COMADMIN_E_SYSTEMAPP;
+		return SYSTEMAPP;
 	CURLcode c = curl_easy_perform(curl);
 	curl_slist_free_all(pHeaderList);
 	if (c == CURLE_OK)
-		return S_OK;
+		return OK;
 	else if (c == CURLE_REMOTE_FILE_NOT_FOUND)
-		return S_FALSE;
+		return EC_FALSE;
 	else
-		return E_UNEXPECTED;
+		return UNEXPECTED;
 	
 }
 

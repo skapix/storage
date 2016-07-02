@@ -2,16 +2,11 @@
 #include <string>
 #include "Storage.h"
 #include <random>
+#include <map>
 
-const unsigned int g_minFileSize =  300 * 1024;
-const unsigned int g_maxFileSize = 5000 * 1024;
+using RandomGenerator = std::ranlux48;
 
-//FS, SMB, FTP, MsSql, PostgreSQLStorage, SQLiteStorage, MongoDB
-const unsigned g_amountClasses = 7;
-
-typedef std::ranlux48 RandomGenerator;
-
-std::string makePathFile(const std::string & path, const std::string & file);
-std::string makePathFileNorm(const std::string & path, const std::string & file);
-std::string getRandData(const size_t a, const size_t b, RandomGenerator & rnd);
+std::string toUpper(const std::string & str);
+std::string getRandData(const size_t minSz, const size_t MaxSz, RandomGenerator & rnd);
 std::string getDataFile(std::istream & f);
+std::string uintToString(const unsigned val);

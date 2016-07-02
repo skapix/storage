@@ -30,7 +30,8 @@ const char * delims = " =,;";
 //-D_SCL_SECURE_NO_WARNINGS
 bool StringParser::initialize(const char * st)
 {
-	
+	initialized = false;
+
 	char * token = NULL, *next_token = NULL;
 	string aux_string(st);
 	token = strtok_s(&aux_string[0], delims, &next_token);
@@ -51,7 +52,7 @@ bool StringParser::initialize(const char * st)
 		else if (consistString(token, g_tableNames, sizeof(g_tableNames) / sizeof(char*)))
 			name = &this->tableName;
 		else
-			return false;
+			return initialized;
 			
 		token = strtok_s(NULL, delims, &next_token);
 		if (name)
@@ -60,7 +61,8 @@ bool StringParser::initialize(const char * st)
 		// unknown token
 		token = strtok_s(NULL, delims, &next_token);
 	}
-	return true;
+	initialized = true;
+	return initialized;
 }
 
 

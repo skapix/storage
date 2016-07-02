@@ -1,10 +1,11 @@
 project(${storage_name})
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
+include(GenerateExportHeader)
 
-set (HEADERS ${CMAKE_SOURCE_DIR}/include/Storage.h auxiliaryStorage.h
- interface_impl.h StringParser.h registry_func.h)
+set (HEADERS auxiliaryStorage.h interface_impl.h StringParser.h)
 
-set(SOURCE Storage.cpp auxiliaryStorage.cpp interface_impl.cpp registry_func.cpp
+ 
+set(SOURCE Storage.cpp auxiliaryStorage.cpp interface_impl.cpp
  FSStorage/FSStorage.cpp
  StringParser.cpp
  SQLiteStorage/SQLiteStorage.cpp
@@ -45,13 +46,21 @@ SET_PROPERTY(TARGET MongoDBT PROPERTY IMPORTED_IMPLIB ${MongoDBLibPath}/mongoc-1
 
 set (ADDITIONAL_LIBRARIES libcurlT sqliteT PostgreSQLT odbc32.lib odbccp32.lib Mpr.lib BSONT MongoDBT)
 
-add_definitions(-D_STORAGE_WITH_EXPORT_BUILD_DLL)
-add_library(${storage_name} SHARED ${SOURCE} ${HEADERS})
+add_library(${storage_name} SHARED ${SOURCE} ${HEADERS} ${main_include_files} ${utility_files})
+
 
 target_link_libraries(${storage_name} ${ADDITIONAL_LIBRARIES})
-set_target_properties(${storage_name} PROPERTIES LINK_FLAGS "/DEF:\"${CMAKE_SOURCE_DIR}/sources/storage/storage.def\"") 
-set_target_properties(${storage_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/)
+set_target_properties(${storage_name} PROPERTIES
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+
+source_group(utilities FILES  ${utility_files})
+source_group("include" FILES  ${main_include_files})
+
+generate_export_header(${storage_name} EXPORT_FILE_NAME storage_exports.h)
+target_include_directories(${storage_name} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 add_custom_command(TARGET ${storage_name} POST_BUILD
 COMMAND ${CMAKE_COMMAND} -E copy_directory "${copy_dll_dir}" "${CMAKE_BINARY_DIR}/bin")

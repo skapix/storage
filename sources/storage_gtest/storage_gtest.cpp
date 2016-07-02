@@ -1,82 +1,108 @@
 #include "tests.h"
-#include "auxiliary.h" //g_amountClasses
+#include "auxiliary.h"
+#include "storage/StringParser.h"
 #include <iostream>
+#include <boost/algorithm/string/join.hpp>
+#include <boost/scope_exit.hpp>
 
 using namespace std;
 
-string uintToString(const UINT val)
-{
-	string ret(30, '\0');
-	sprintf_s(&ret[0], 30, "%u", val);
-	ret.resize(ret.find('\0'));
-	return ret;
-}
 
 int main(int argc, char * argv[])
 {
 	if (argc > 2 && strcmp(argv[1], "--help") == 0 || argc == 1)
 	{
-		cout << "Take a look at example [example_gtest.txt] in the root dir" << endl;
+		cout << "Take a look at example [example_gtest.txt] in the root dir" << endl <<
+			"If you want to pass additional parameters to gtest, pass them at first";
 		return 0;
 	}
-	for (int i = 1; i < argc;)
+
+	int i = 1;
+	while (argv[i][0] == argv[i][1] && argv[i][1] == '-')
 	{
-		char cnum = argv[i][0];
-		int num = -1;
-		if (cnum >= '0' && cnum <= '9')
+		++i;
+	}
+
+	int totalGtestParams = i;
+
+	for (; i < argc;)
+	{
+		ParamExtra currentParam;
+		string storageShortcut = toUpper(argv[i]);
+		if (!g_shortcuts.count(storageShortcut))
 		{
-			num = atoi(argv[i]);
-			if (num < 0 || num >= g_amountClasses)
-			{
-				cout << "Wrong number: " << num << ". Number should be in range of amount classes" << endl;
-				++i;
-				continue;
-			}
-		}
-		else
-		{
-			cout << "Can't parse argument: " << argv[i] << ". Number should be presented" << endl;
+			cout << "Can't find storage: " << argv[i] << endl;
 			++i;
 			continue;
 		}
-		// num is correct. It's time to get init params.
+
+		currentParam.type = g_shortcuts.find(storageShortcut)->second;
+
+		// get params
 		++i;
-		if (i >= argc) break;
+		if (i >= argc)
 		{
-			map<string, string> s;
-			s[im::g_id] = uintToString((UINT)num);
-			// don't check init params, they are without flags
-			s[im::g_init] = argv[i];
-			g_inits.push_back(std::move(s));
+			cout << "Initialization parameters weren't found" << endl;
+			break;
 		}
+
+		// don't check init params, should be without flags
+		currentParam.initParams = argv[i];
+
+		g_testSimpleParams.emplace_back(InitParam{ currentParam.type, currentParam.initParams });
+
 		++i;
 		if (i >= argc) break;
 
-		for (int k = 0; k < 2; ++k)
+		auto addTest = [&](std::vector<ParamExtra>& param)
 		{
-			if (strcmp(argv[i], "-f") == 0)
+			++i;
+			if (i >= argc) 
+				return;
+			currentParam.additionParam = argv[i];
+			param.push_back(currentParam);
+			++i;
+		};
+
+		for (int k = 0; k < 3 && i < argc; ++k)
+		{
+			if (strcmp(argv[i], "-e") == 0)
 			{
-				++i;
-				if (i >= argc) break;
-				g_inits.back()[im::g_fb] = argv[i];
-				++i;
+				addTest(g_testExportParams);
+			}
+			else if (strcmp(argv[i], "-if") == 0 ||
+				strcmp(argv[i], "-fi") == 0)
+			{
+				addTest(g_testFullBackupParams);
+				g_testIncBackupParams.push_back(g_testFullBackupParams.back());
+			}
+			else if (strcmp(argv[i], "-f") == 0)
+			{
+				addTest(g_testFullBackupParams);
 			}
 			else if (strcmp(argv[i], "-i") == 0)
 			{
-				++i;
-				if (i >= argc) break;
-				g_inits.back()[im::g_ib] = argv[i];
-				++i;
+				addTest(g_testFullBackupParams);
 			}
 			else
 				break;
 		}
 	}
 
-	int no_argc = 1;
-	::testing::InitGoogleTest(&no_argc, argv);
+	for (size_t i = 0; i < g_fileNameData.size(); ++i)
+	{
+		g_fileNameData[i].second = getRandData(g_minFileSize, g_maxFileSize, RandomGenerator(i));
+	}
+
+	for (size_t i = 0; i < g_fileNameDataIncBackup.size(); ++i)
+	{
+		g_fileNameDataIncBackup[i].second = getRandData(g_minFileSize, g_maxFileSize,
+			RandomGenerator(-1 - i));
+	}
+
+	::testing::InitGoogleTest(&totalGtestParams, argv);
 	int retVal = RUN_ALL_TESTS();
-	system("pause");
+	//system("pause");
 	return retVal;
 
 }

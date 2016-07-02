@@ -1,12 +1,7 @@
 #include "..\\interface_impl.h"
 #include "sqlite3.h"
 #include "..\\auxiliaryStorage.h"
-#include <boost/version.hpp> 
-#if defined(_MSC_VER) && BOOST_VERSION==105700 
-//#pragma warning(disable:4003) 
-#define BOOST_PP_VARIADICS 0 
-#endif
-#include "boost\scope_exit.hpp"
+#include <boost\scope_exit.hpp>
 
 using namespace std;
 
@@ -18,21 +13,21 @@ const char g_SQL_INSERT[] = "INSERT INTO %s(text, name) VALUES(?, ?)";
 const char g_SQL_SELECT[] = "SELECT text FROM %s WHERE name = ?";
 const char g_SQL_REMOVE[] = "delete from %s where name = ?";
 
-HRESULT _CCONV SQLiteStorage::openStorage(const char * st)
+ErrorCode _CCONV SQLiteStorage::openStorage(const char * st)
 {
 	if (st == nullptr || !parser.initialize(st))
-		return E_INVALIDARG;
+		return INVALIDARG;
 	if (parser.getTableName().empty() || parser.getDbName().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 
 	string createQuery;
 	bindParam(parser.getTableName(), g_SQL_CREATE, createQuery);
 	int err;
 
 	if (SQLITE_OK != (err = sqlite3_open(parser.getDbName().c_str(), &db)))
-		return E_FAIL;
+		return FAIL;
 	else if (SQLITE_OK != (err = sqlite3_exec(db, createQuery.c_str(), 0, 0, nullptr)))
-		return CO_E_FAILEDTOGETWINDIR;
+		return FAILEDTOGETWINDIR;
 
 	const char * sqlQueryUnbinded[] = { g_SQL_SELECT, g_SQL_INSERT, g_SQL_UPDATE, g_SQL_REMOVE };
 	sqlite3_stmt ** pStmtParam[] = { &pStmt_select, &pStmt_insert, &pStmt_update, &pStmt_remove };
@@ -42,9 +37,9 @@ HRESULT _CCONV SQLiteStorage::openStorage(const char * st)
 		bindParam(parser.getTableName(), sqlQueryUnbinded[i], sqlQuery);
 		err = sqlite3_prepare_v2(db, sqlQuery.c_str(), sqlQuery.size(), pStmtParam[i], NULL);
 		if (err != SQLITE_OK)
-			return E_UNEXPECTED;
+			return UNEXPECTED;
 	}
-	return S_OK;
+	return OK;
 }
 
 
@@ -59,7 +54,7 @@ int bindAndExecBT(sqlite3_stmt * pStmt, const string & blob, const string & text
 	return rc;
 }
 
-int bindAndExecBT(sqlite3_stmt * pStmt, const char * blob, const UINT size, const char * text)
+int bindAndExecBT(sqlite3_stmt * pStmt, const char * blob, const unsigned size, const char * text)
 {
 
 	sqlite3_bind_blob(pStmt, 1, blob, size, SQLITE_STATIC);
@@ -69,28 +64,28 @@ int bindAndExecBT(sqlite3_stmt * pStmt, const char * blob, const UINT size, cons
 	return rc;
 }
 
-HRESULT _CCONV SQLiteStorage::add(const char * name, const char * data, const UINT size)
+ErrorCode _CCONV SQLiteStorage::add(const char * name, const char * data, const unsigned size)
 {
 	int retVal = bindAndExecBT(pStmt_insert, data, size, name);
 	if (retVal == SQLITE_CONSTRAINT)
 		retVal = bindAndExecBT(pStmt_update, data, size, name);
-	return retVal == SQLITE_DONE ? S_OK : E_FAIL;
+	return retVal == SQLITE_DONE ? OK : FAIL;
 }
 
 
-HRESULT _CCONV SQLiteStorage::get(const char * name, char ** data, UINT * size)
+ErrorCode _CCONV SQLiteStorage::get(const char * name, char ** data, unsigned * size)
 {
 	sqlite3_bind_text(pStmt_select, 1, name, strlen(name), SQLITE_STATIC);
 	BOOST_SCOPE_EXIT(pStmt_select) { sqlite3_reset(pStmt_select); } BOOST_SCOPE_EXIT_END;
 	int rc = sqlite3_step(pStmt_select);
 	if (rc == SQLITE_ROW)
 	{
-		UINT length = sqlite3_column_bytes(pStmt_select, 0);
+		unsigned length = sqlite3_column_bytes(pStmt_select, 0);
 		d_getFunc(data, size, length, memcpy(*data, sqlite3_column_blob(pStmt_select, 0), length));
-		return sqlite3_step(pStmt_select) == SQLITE_DONE ? S_OK : E_FAIL;
+		return sqlite3_step(pStmt_select) == SQLITE_DONE ? OK : FAIL;
 	}
 	else
-		return S_FALSE;
+		return EC_FALSE;
 	//sqlite3_clear_bindings(pStmt_select);
 }
 
@@ -114,8 +109,8 @@ int bindAndExecBTT(sqlite3_stmt *pStmt, const void * data,
 	return rc;
 }
 
-HRESULT sqliteBackup(sqlite3 * pOurDb, const string & ourTablename, sqlite3* pDestDb, const string & destTablename, 
-	const string & date, UINT & amountBackup)
+ErrorCode sqliteBackup(sqlite3 * pOurDb, const string & ourTablename, sqlite3* pDestDb, const string & destTablename, 
+	const string & date, unsigned & amountBackup)
 {
 	//binding params
 	string sql_selectText;
@@ -130,20 +125,20 @@ HRESULT sqliteBackup(sqlite3 * pOurDb, const string & ourTablename, sqlite3* pDe
 	bindParam(destTablename, g_SQL_CREATE, createQuery);
 	int err;
 	if (SQLITE_OK != sqlite3_exec(pDestDb, createQuery.c_str(), 0, 0, nullptr))
-		return E_FAIL;
+		return FAIL;
 	//prepared statements
 	sqlite3_stmt * pStmtInsert, *pStmtUpdate, *pStmtSelect;
 	err = sqlite3_prepare_v2(pDestDb, insertQuery.c_str(), insertQuery.length(), &pStmtInsert, 0);
 	if (err != SQLITE_OK)
-		return E_UNEXPECTED;
+		return UNEXPECTED;
 	BOOST_SCOPE_EXIT(pStmtInsert) { sqlite3_finalize(pStmtInsert); } BOOST_SCOPE_EXIT_END;
 	err = sqlite3_prepare_v2(pDestDb, updateQuery.c_str(), updateQuery.length(), &pStmtUpdate, 0);
 	if (err != SQLITE_OK)
-		return E_UNEXPECTED;
+		return UNEXPECTED;
 	BOOST_SCOPE_EXIT(pStmtUpdate) { sqlite3_finalize(pStmtUpdate); } BOOST_SCOPE_EXIT_END;
 	err = sqlite3_prepare_v2(pOurDb, sql_selectText.c_str(), -1, &pStmtSelect, 0);
 	if (err != SQLITE_OK)
-		return E_UNEXPECTED;
+		return UNEXPECTED;
 	BOOST_SCOPE_EXIT(pStmtSelect) { sqlite3_finalize(pStmtSelect); } BOOST_SCOPE_EXIT_END;
 
 	//get and paste values
@@ -159,21 +154,21 @@ HRESULT sqliteBackup(sqlite3 * pOurDb, const string & ourTablename, sqlite3* pDe
 			retVal = bindAndExecBTT(pStmtUpdate, blob, blobSize, timestamp, name);
 		//inserting is not ok
 		if (retVal != SQLITE_DONE)
-			return E_FAIL;
+			return FAIL;
 		++amountBackup;
 	}
-	return err == SQLITE_DONE ? S_OK : E_FAIL;
+	return err == SQLITE_DONE ? OK : FAIL;
 	
 }
 
 
-HRESULT _CCONV SQLiteStorage::backupFull(const char * path, UINT * amountChanged)
+ErrorCode _CCONV SQLiteStorage::backupFull(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	StringParser otherParser(path);
 	if (parser.getTableName().empty() || parser.getDbName().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 	sqlite3 * pDest;
 	if (parser.getDbName() == otherParser.getDbName())
 		pDest = db;
@@ -181,10 +176,10 @@ HRESULT _CCONV SQLiteStorage::backupFull(const char * path, UINT * amountChanged
 	{
 		int res = sqlite3_open(otherParser.getDbName().c_str(), &pDest);
 		if (res != SQLITE_OK)
-			return CO_E_FAILEDTOGETWINDIR;
+			return FAILEDTOGETWINDIR;
 	}
-	UINT amountBackup = 0;
-	HRESULT retVal = sqliteBackup(db, parser.getTableName(), pDest, otherParser.getTableName(), string(""), amountBackup);
+	unsigned amountBackup = 0;
+	ErrorCode retVal = sqliteBackup(db, parser.getTableName(), pDest, otherParser.getTableName(), string(""), amountBackup);
 	if (pDest != db)
 		sqlite3_close(pDest);
 	if (amountChanged != nullptr)
@@ -234,13 +229,13 @@ int substituteAndExecTTT(const char * sqlReq, sqlite3 * db, const string & t1, c
 //err = sqlite3_exec(this->db, "SELECT name FROM sqlite_master WHERE type='table'", backup_callback, &arg, &errMsg);
 
 
-HRESULT SQLiteStorage::backupIncremental(const char * path, UINT * amountChanged)
+ErrorCode SQLiteStorage::backupIncremental(const char * path, unsigned * amountChanged)
 {
 	if (path == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	StringParser otherParser(path);
 	if (otherParser.getTableName().empty() || otherParser.getDbName().empty())
-		return E_INVALIDARG;
+		return INVALIDARG;
 	sqlite3 * pDest;
 	int err;
 	
@@ -252,11 +247,11 @@ HRESULT SQLiteStorage::backupIncremental(const char * path, UINT * amountChanged
 	{
 		err = sqlite3_open(otherParser.getDbName().c_str(), &pDest);
 		if (err != SQLITE_OK)
-			return CO_E_FAILEDTOGETWINDIR;
+			return FAILEDTOGETWINDIR;
 	}
 	BOOST_SCOPE_EXIT(pDest, db) { if (pDest != db) sqlite3_close(pDest); } BOOST_SCOPE_EXIT_END;
 	if (SQLITE_OK != (err = sqlite3_exec(pDest, g_SQL_CREATEDATE, 0, 0, nullptr)))
-		return E_FAIL;
+		return FAIL;
 	
 
 	string nowDate, lastDate;
@@ -264,10 +259,10 @@ HRESULT SQLiteStorage::backupIncremental(const char * path, UINT * amountChanged
 	bind2Params(parser.getTableName(), otherParser.getTableName(), g_SQL_SELECTLASTDATE, newQuery);
 	if (!selectSingleTextFromQuery(pDest, lastDate, newQuery.c_str()) ||
 		!selectSingleTextFromQuery(pDest, nowDate, g_SQL_GETCURDATE))
-		return E_FAIL;
-	UINT amountBackup = 0;
-	HRESULT res = sqliteBackup(db, parser.getTableName(), pDest, otherParser.getTableName(), lastDate, amountBackup);
-	if (FAILED(res))
+		return FAIL;
+	unsigned amountBackup = 0;
+	ErrorCode res = sqliteBackup(db, parser.getTableName(), pDest, otherParser.getTableName(), lastDate, amountBackup);
+	if (failed(res))
 		return res;
 	//insertDate
 	err = substituteAndExecTTT(g_SQL_INSERTDATE, pDest, nowDate, parser.getTableName(), otherParser.getTableName());
@@ -275,17 +270,17 @@ HRESULT SQLiteStorage::backupIncremental(const char * path, UINT * amountChanged
 		err = substituteAndExecTTT(g_SQL_UPDATEDATE, pDest, nowDate, parser.getTableName(), otherParser.getTableName());
 	if (amountChanged != nullptr)
 		*amountChanged = amountBackup;
-	return err == SQLITE_DONE || err == SQLITE_OK ? S_OK : E_FAIL;
+	return err == SQLITE_DONE || err == SQLITE_OK ? OK : FAIL;
 }
 
-HRESULT _CCONV SQLiteStorage::remove(const char * name)
+ErrorCode _CCONV SQLiteStorage::remove(const char * name)
 {
 	if (name == nullptr)
-		return E_INVALIDARG;
+		return INVALIDARG;
 	sqlite3_bind_text(pStmt_remove, 1, name, strlen(name), SQLITE_STATIC);
 	int rc = sqlite3_step(pStmt_remove);
 	sqlite3_reset(pStmt_remove);
-	return rc == SQLITE_OK ? S_OK : S_FALSE;
+	return rc == SQLITE_OK ? OK : EC_FALSE;
 }
 
 SQLiteStorage::~SQLiteStorage()

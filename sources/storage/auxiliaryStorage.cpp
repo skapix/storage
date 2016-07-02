@@ -14,61 +14,21 @@ const char g_logDbName[] = "_syslastbackupinc";
 void bindParam(const string & param, const char * unbindedQuery, string & outputQuery)
 {
 	outputQuery.resize(strlen(unbindedQuery) + param.size() - 2 + 1);// +1 for nullptr//just in case
-	if (sprintf_s(&outputQuery[0], outputQuery.size(), unbindedQuery, param.c_str()) == -1)
-		throw exception("bad bind");
+	assert(sprintf_s(&outputQuery[0], outputQuery.size(), unbindedQuery, param.c_str()) >= 0);
 }
 
 void bind2Params(const std::string & param1, const std::string & param2, const char * unbindedQuery, std::string & outputQuery)
 {
 	outputQuery.resize(strlen(unbindedQuery) + param1.size() + param2.size() - 4 + 1);// +1 for nullptr//just in case
-	if (sprintf_s(&outputQuery[0], outputQuery.size(), unbindedQuery, param1.c_str(), param2.c_str()) == -1)
-		throw exception("bad bind");
+	assert(sprintf_s(&outputQuery[0], outputQuery.size(), unbindedQuery, param1.c_str(), param2.c_str()) >= 0);
 }
 
 void bind3Params(const std::string & param1, const std::string & param2, const std::string & param3,
 	const char * unbindedQuery, std::string & outputQuery)
 {
 	outputQuery.resize(strlen(unbindedQuery) + param1.size() + param2.size() + param3.size() - 6 + 1);
-	if (sprintf_s(&outputQuery[0], outputQuery.size(), unbindedQuery, param1.c_str(), param2.c_str(), param3.c_str()) == -1)
-		throw exception("bad bind");
-}
-
-
-string makePathFile(const string & path, const string & file)
-{
-	if (path.empty() || path.back() == '\\')
-		return path + file;
-	else
-		return path + "\\" + file;
-}
-
-string makePathFile(const std::string & path, const char * file)
-{
-	if (file)
-		if (path.empty() || path.back() == '\\')
-			return path + file;
-		else
-			return path + "\\" + file;
-	else
-		return path;
-}
-
-string makePathFileNorm(const string & path, const string & file)
-{
-	if (path.empty() || path.back() == '/')
-		return path + file;
-	else
-		return path + "/" + file;
-}
-
-string makePathFileNorm(const string & path, const char * file)
-{
-	if (file)
-		if (path.empty() || path.back() == '/')
-			return path + file;
-		else
-			return path + "/" + file;
-	else return path;
+	assert(sprintf_s(&outputQuery[0], outputQuery.size(),
+		unbindedQuery, param1.c_str(), param2.c_str(), param3.c_str()) >= 0);
 }
 
 

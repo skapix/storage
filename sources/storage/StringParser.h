@@ -14,10 +14,13 @@ class StringParser
 		password,
 		dbName,
 		tableName;
+
+	bool initialized;
 public:
-	StringParser() {}
-	StringParser(const char * st) { initialize(st); }
+	StringParser() : initialized(false) {}
+	StringParser(const char * st) { initialized = initialize(st); }
 	bool initialize(const char * st);
+	bool isInitialized() const { return initialized; }
 	void setServer(const char * s) { server = s; }
 	const std::string & getServer() const { return server; };
 	std::string & getServer() { return server; };

@@ -1,5 +1,5 @@
 project(large_storage)
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 if (NOT WIN32)
   ##
@@ -7,7 +7,12 @@ if (NOT WIN32)
   ##
 endif()
 
+
+include_directories(${CMAKE_SOURCE_DIR}/sources)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
 include(settings.cmake)
+add_definitions(-D_CMAKE_USED)
 
 set(LibCurlPath ${CMAKE_SOURCE_DIR}/libs/curl-7.42.1)
 set(PostgreSQLPath ${CMAKE_SOURCE_DIR}/libs/pgsql)
@@ -50,6 +55,13 @@ include_directories("${CMAKE_SOURCE_DIR}/include/"
 	${SQLiteIncludePath} ${LibCurlIncludePath}
 	${PostgreSQLIncludePath} ${MsSQLIncludePath} ${BSONIncludePath} ${MongoDBIncludePath}
   ${GTEST_INCLUDE_DIRS})
+
+set(main_include_files ${CMAKE_SOURCE_DIR}/include/Storage.h ${CMAKE_SOURCE_DIR}/include/ErrorCode.h)
+
+file(GLOB utility_files
+    "${CMAKE_SOURCE_DIR}/sources/utilities/*.h"
+    "${CMAKE_SOURCE_DIR}/sources/utilities/*.cpp"
+)
 
 set(storage_name storage)
 set(copy_dll_dir ${CMAKE_SOURCE_DIR}/bin) # directory with dll files

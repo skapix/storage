@@ -1,18 +1,21 @@
 #define NOMINMAX
 #include "Storage.h"
 #include "func.h"
+#include "..\storage\StringParser.h"
+#include "utilities/common.h"
 #include <cstdlib>
 #include <iostream>
 #include <string>
 #include <algorithm> // max
 #include <fstream>
-#include "..\storage\StringParser.h"
+
 
 using std::cout;
 using std::endl;
 using std::string;
 using std::ifstream;
 using std::ofstream;
+using utilities::makePathFile;
 
 string uintToString(const UINT & val)
 {
