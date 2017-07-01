@@ -13,7 +13,7 @@ public:
   //ErrorCode _CCONV exportFiles(const char * const * fileNames, const unsigned amount, const char * path); // implemented in Storage_impl
   ErrorCode _CCONV backupFull(const char * path, unsigned * amountChanged) override;
   ErrorCode _CCONV backupIncremental(const char * path, unsigned * amountChanged) override;
-  ErrorCode _CCONV remove(const char * name);
+  ErrorCode _CCONV remove(const char * name) override;
   ~FSBase() {};
 };
 

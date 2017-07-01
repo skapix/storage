@@ -53,3 +53,8 @@ ErrorCode _CCONV Storage_impl::exportFiles(const char * const * fileNames, const
 	}
 	return OK;
 }
+
+ErrorCode _CCONV Storage_impl::remove(const char * filename)
+{
+  return NOT_IMPLEMENTED;
+}

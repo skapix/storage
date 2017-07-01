@@ -15,7 +15,9 @@ enum ErrorCode
 	FILE_WRITEFAIL      = -11,
 	FAIL                = -12,
 	FILE_TOO_LARGE      = -13,
-	INVALID_DATA        = -14
+	INVALID_DATA        = -14,
+  ACCESS_DENIES       = -15,
+  NOT_IMPLEMENTED     = -16
 };
 
 

@@ -55,9 +55,9 @@ struct Storage
 	@param amountChanged amount of copied or renewed files
 	*/
 	virtual ErrorCode _CCONV backupIncremental(const char * path, unsigned * amountChanged) = 0;
-	/**
+	/** Remove file from storage
 	*/
-	//virtual ErrorCode _CCONV remove(const char * name) = 0; // TODO
+	virtual ErrorCode _CCONV remove(const char * name) = 0;
 };
 
 enum Storage_t

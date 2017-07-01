@@ -196,15 +196,15 @@ ErrorCode _CCONV FSBase::backupIncremental(const char * path, unsigned * amountC
 }
 
 
-//ErrorCode _CCONV FSBase::remove(const char * name)
-//{
-//	if (name == nullptr)
-//		return INVALIDARG;
-//	string fullName = makePathFile(parser.getServer(), name);
-//	if (DeleteFile(fullName.c_str()))
-//		return OK;
-//	if (GetLastError() == ERROR_FILE_NOT_FOUND)
-//		return EC_FALSE;
-//	else
-//		return MAKE_ErrorCode(SEVERITY_ERROR, FACILITY_WINDOWS, ERROR_ACCESS_DENIED);
-//}
+ErrorCode _CCONV FSBase::remove(const char * name)
+{
+	if (name == nullptr)
+		return INVALIDARG;
+	string fullName = makePathFile(parser.getServer(), name);
+	if (DeleteFile(fullName.c_str()))
+		return OK;
+	if (GetLastError() == ERROR_FILE_NOT_FOUND)
+		return EC_FALSE;
+	else
+		return ACCESS_DENIES;
+}

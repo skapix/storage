@@ -14,5 +14,7 @@ protected:
 public:
 	Storage_impl() {}
 	virtual ErrorCode _CCONV exportFiles(const char * const * fileNames, const unsigned amount, const char * path) override;
+  // dummy
+  virtual ErrorCode _CCONV remove(const char * filename) override;
 	virtual ~Storage_impl() {}
 };

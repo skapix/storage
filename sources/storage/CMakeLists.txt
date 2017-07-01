@@ -7,12 +7,13 @@ set (headers auxiliaryStorage.h export_impl.h StringParser.h CACHE STRING "")
 
 set(sources Storage.cpp auxiliaryStorage.cpp export_impl.cpp StringParser.cpp CACHE STRING "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/FS)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/FTP)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/MongoDB)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/MSSQL)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/PostgreSQL)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/SMB)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/FTP)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/MSSQL)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/SQLite3)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/PostgreSQL)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/MongoDB)
+
 
 
 add_library(${storage_name} SHARED ${sources} ${headers} ${main_include_files} ${utility_files})
@@ -25,6 +26,19 @@ set_target_properties(${storage_name} PROPERTIES
 
 source_group(utilities FILES  ${utility_files})
 source_group("include" FILES  ${main_include_files})
+source_group("storage\\FS" FILES ${FS_files})
+source_group("storage\\SMB" FILES ${SMB_files})
+source_group("storage\\FTP" FILES ${FTP_files})
+source_group("storage\\MSSQL" FILES ${MSSQL_files})
+source_group("storage\\SQLite3" FILES ${SQLite3_files})
+source_group("storage\\PostgreSQL" FILES ${PostgreSQL_files})
+source_group("storage\\MongoDB" FILES ${MongoDB_files})
+
+
+
+source_group("storage\\FTP" FILES ${FTP_files})
+
+
 
 generate_export_header(${storage_name} EXPORT_FILE_NAME storage_exports.h)
 
