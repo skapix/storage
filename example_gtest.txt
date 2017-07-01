@@ -1,1 +1,1 @@
-fs "D:/test_dir/fs_storage/1" -f "D:/test_dir/fs_storage/1fb" -i "D:/test_dir/fs_storage/1ib" -e "D:/test_dir/fs_storage/exported"
+storage_gtest fs "fs_storage/1" -f "fs_storage/1fb" -i "fs_storage/1ib" -e "fs_storage/exported"

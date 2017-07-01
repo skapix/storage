@@ -1,4 +1,5 @@
 #pragma once
+
 #include "ErrorCode.h"
 #ifdef _CMAKE_USED
 #include "storage_exports.h"
@@ -70,8 +71,11 @@ enum Storage_t
 	e_MongoDB
 };
 
-
+// TODO: pass arguments for creating a storage and remove init method
+// One storage is for one server and type of connection
 STORAGE_EXPORT Storage * createStorage(const Storage_t storType);
 STORAGE_EXPORT void releaseStorage(Storage * storage);
+
+#undef STORAGE_EXPORT
 
 } // extern "C"
