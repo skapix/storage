@@ -5,7 +5,8 @@ include(GenerateExportHeader)
 set (headers auxiliaryStorage.h export_impl.h StringParser.h CACHE STRING "")
 
 
-set(sources Storage.cpp auxiliaryStorage.cpp export_impl.cpp StringParser.cpp CACHE STRING "")
+set(sources "${CMAKE_CURRENT_SOURCE_DIR}/Storage.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/auxiliaryStorage.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/export_impl.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/StringParser.cpp" CACHE STRING "")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/FS)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/SMB)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/FTP)

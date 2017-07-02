@@ -2,8 +2,10 @@ project(large_storage)
 cmake_minimum_required(VERSION 3.0)
 
 if (NOT WIN32)
-	message(FATAL_ERROR "Currently only Windows OS is supported")
-endif()
+  # using c++17 because of c++ filesystem
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif(NOT WIN32)
 
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
@@ -27,8 +29,8 @@ add_definitions( "-DHAS_BOOST" )
 
 link_directories(${PostgreSQLLibPath})
 include_directories("${CMAKE_SOURCE_DIR}/include/"  
-	${SQLiteIncludePath} ${LibCurlIncludePath}
-	${PostgreSQLIncludePath} ${MsSQLIncludePath} ${BSONIncludePath} ${MongoDBIncludePath}
+  ${SQLiteIncludePath} ${LibCurlIncludePath}
+  ${PostgreSQLIncludePath} ${MsSQLIncludePath} ${BSONIncludePath} ${MongoDBIncludePath}
   ${GTEST_INCLUDE_DIRS})
 
 set(main_include_files ${CMAKE_SOURCE_DIR}/include/Storage.h ${CMAKE_SOURCE_DIR}/include/ErrorCode.h)

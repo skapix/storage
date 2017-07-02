@@ -10,7 +10,11 @@
 #endif
 
 // calling convention
+#ifdef _WIN32
 #define _CCONV __stdcall
+#else
+#define _CCONV
+#endif
 
 
 extern "C"
